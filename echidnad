@@ -1,0 +1,189 @@
+#!/usr/bin/perl
+#
+#
+#
+
+use warnings;
+use strict;
+
+use 5.010;
+
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
+use DBD::mysql;
+use DBI;
+use Digest::SHA qw(sha256_hex);
+use Mojo::JSON;
+# use Mojolicious::Lite;
+use Mojo::IOLoop;
+use Mojo::UserAgent;
+use Mojolicious::Commands;
+
+
+#
+# CONFIGURATION
+#
+
+my $CONF = {
+  network => {
+    host => 'localhost',
+    port => 6970,
+  },
+  auth => {
+    secret => 'woot',
+    key    => 'asdd',
+  },
+  agents => {
+    cxtracker => {
+      type => 'cxtracker',
+      host => 'localhost',
+      port => 6969,
+    },
+  }
+};
+
+my $AGENTS = {};
+my $AGENTS_SC;
+
+
+$ENV{MOJO_APP} = 'Echidna::Web::Server';
+
+#
+# INITIATE AGENT CHECKS
+#
+
+sub _agent_status_check {
+  foreach my $a ( keys %{ $AGENTS } )
+  {
+    say("D: checking agent: $a");
+
+    if( ref($AGENTS->{$a}{_ua}) eq 'Mojo::UserAgent' ) {
+      next;
+    }
+    else
+    {
+      say("D: building agent comms: $a");
+    }
+
+    $AGENTS->{$a}{_ua} = Mojo::UserAgent->new();
+    $AGENTS->{$a}{_ua}->on(error => sub {
+      my ($ua, $err) = @_;
+      say "This looks bad: $err";
+    });
+
+    $AGENTS->{$a}{_nonce} = sha256_hex( time() );
+
+    $AGENTS->{$a}{_ua}->websocket('ws://localhost:6969/echo' => sub {
+      my ($ua, $tx) = @_;
+
+      $tx->on(message => sub {
+        my ($tx, $msg) = @_;
+
+        my $json = Mojo::JSON->new();
+
+        eval {
+          $msg = $json->decode($msg);
+
+          my $res = {
+            type => $msg->{type} //= 'unknown'
+          };
+
+          given( $msg->{type} )
+          {
+            when('auth_request')
+            {
+              if( $msg->{hmac} eq sha256_hex( $AGENTS->{$a}{_nonce} . $CONF->{auth}{secret} ) )
+              {
+                $res->{type} = 'auth_validate',
+                $res->{session_key} = sha256_hex( time() );
+                $res->{session_uri} = $CONF->{network}{host} . ':' . $CONF->{network}{port};
+
+                say "E: AUTH GRANTED";
+                $tx->send( $json->encode( $res ) );
+              }
+              else
+              {
+                say "E: AUTH DENIED";
+                $tx->finish();
+              }
+            }
+            when('auth_validate')
+            {
+              if( $msg->{status} eq '200' )
+              {
+                # establish the heartbeat
+                $AGENTS->{$a}{_ping} = Mojo::IOLoop->recurring( 5 => sub {
+                  my $json = Mojo::JSON->new();
+
+                  $tx->send($json->encode({
+                    type => 'ping',
+                    time => time()
+                  }));
+                });
+              }
+              else
+              {
+                $tx->finish();
+              }
+            }
+            when('ping')
+            {
+            }
+            default {
+              say Dumper($msg);
+            }
+          }
+        };
+      });
+
+      $tx->on(finish => sub {
+        say 'WebSocket closed.';
+
+        # clean up heartbeat if appropriate
+        if( defined($AGENTS->{$a}{_ping}) )
+        {
+          my $_timer_id = delete( $AGENTS->{$a}{_ping} );
+          Mojo::IOLoop->remove( $_timer_id );
+        }
+
+        delete( $AGENTS->{$a}{_ua} );
+      });
+
+      my $json = Mojo::JSON->new();
+
+      # initialise authentication
+      $tx->send($json->encode({
+        type  => 'auth_request',
+        nonce => $AGENTS->{$a}{_nonce}
+      }));
+    });
+  }
+}
+
+sub _agent_setup {
+  foreach my $a ( keys %{ $CONF->{agents} } )
+  {
+    $AGENTS->{$a} = $CONF->{agents}{$a};
+  }
+
+  say("Starting agent checks ... ");
+
+  $AGENTS_SC = Mojo::IOLoop->recurring( 5 => sub { _agent_status_check() } );
+  _agent_status_check();
+}
+
+#
+# ROUTES
+#
+
+
+
+#
+# INIT
+#
+_agent_setup();
+
+
+Mojolicious::Commands->start();

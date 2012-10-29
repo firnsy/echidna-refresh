@@ -1,0 +1,24 @@
+Echidna RESTful API:
+
+Dependencies:
+- Mojolicious
+- AnyEvent
+- EV
+- Morbo Server (Mojolicious Non-blocking server)
+
+* AnyEvent
+  - EV
+  - AnyEvent::DBI
+
+
+
+
+# TESTING
+
+# move to the root of the source
+
+# start echidnad
+PERL5LIB=./lib morbo --listen='http://localhost:6970' ./echidnad
+
+# start cxtrackerd
+PERL5LIB=./lib morbo --listen 'http://localhost:6969' ./cxtrackerd

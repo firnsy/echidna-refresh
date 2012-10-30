@@ -187,8 +187,6 @@ sub _process_start {
     return;
   }
 
-  $CONF->{_ua} = Mojo::UserAgent->new();
-
   # TODO: fanotify based watcher
   # establish the poll process
   $CONF->{_cxtracker}{process_timer} = Mojo::IOLoop->recurring($CONF->{cxtracker}{poll}, sub {
@@ -211,9 +209,6 @@ sub _process_stop {
   say("Stopping...");
   Mojo::IOLoop->remove( $CONF->{_cxtracker}{process_timer} );
   delete( $CONF->{_cxtracker}{process_timer} );
-
-  delete( $CONF->{_ua} );
-
 }
 
 
@@ -312,6 +307,11 @@ websocket '/echo' => sub {
 #
 # INIT
 #
+
+
+$CONF->{_ua} = Mojo::UserAgent->new();
+
+
 app->config(hypnotoad => {listen => ['http://' . $CONF->{network}{host} . '/' . $CONF->{network}{port}]});
 
 app->secret('cxtrackerd');

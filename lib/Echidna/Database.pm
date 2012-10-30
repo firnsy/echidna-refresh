@@ -2,53 +2,27 @@ package Echidna::Database;
 
 use strict;
 use 5.010;
+use Carp;
+use Module::Pluggable
+    search_path => 'Echidna::Database',
+    sub_name => 'drivers',
+    except => qr/Base/;
 
-#use EV;
-use AnyEvent;
-use Data::Dumper;
-use Echidna::Database::Pool::MySQL;
-
-
-my $instance;
 sub new {
-  unless ($instance) {
-    $instance = bless {
-      __dbh => undef,
-    }, __PACKAGE__
-  }
-  $instance->{__dbh} = Echidna::Database::Pool::MySQL->new();
+    my ($class, $handler, $settings) = @_;
 
-  return $instance;
-}
+    my $driver_package = __PACKAGE__ .'::'. uc $handler;
 
-sub search {
-    my ($self, $params) = @_;
+    croak "Database driver not supported" 
+        unless /$driver_package/i ~~ [__PACKAGE__->drivers];
+        #unless $handler ~~ ['dbi', 'cassandra', 'mongodb'];
 
-    my $dbi = $self->{__dbh}->fetch();
-    for my $source (keys %$params) {
-        say "Searching $source";
-
-        say Dumper $params->{$source};
+    my $driver_path = "Echidna::Database::" .uc($handler);
+    eval qq{require $driver_path}; if ($@) {
+        croak "Failed to load $driver_path $@";
     }
-}
 
-sub sleep {
-    my ($self, $cb) = @_;
-    my $w; $w = AE::timer 3, 0, sub { $cb->(); undef $w };
-}
-
-sub get_agents {
-    my $self = shift;
-    my $cv = AE::cv;
-
-    my $dbi = $self->{__dbh}->fetch;
-    my $query = "SELECT name, description, ip, updated FROM agent";
-    $dbi->exec($query, sub {
-        my ($dbh, $rows, $rv) = @_;
-        $cv->send($rows);
-    });
-
-    $cv->wait;
+    return $driver_path->new($settings);
 }
 
 1;

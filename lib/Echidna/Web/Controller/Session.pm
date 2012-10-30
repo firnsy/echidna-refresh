@@ -75,24 +75,25 @@ sub collection_add {
   eval {
    $data = $json->decode( $self->req()->body() );
    $model = Echidna::Model::Session->new( $data );
+
+    $db->insert( session => $model, sub {
+      say Dumper($@);
+
+      $self->render(
+        status => 502,
+        json => { status => 'This method has not been implemented yet' }
+      );
+    });
   };
-  #if( $@ )
-  #{
-  return  $self->render(
-      status => 501,
+  if( $@ )
+  {
+    say Dumper($@);
+    $self->render(
+      status => 500,
       json => { status => 'Error inserting data.' }
     );
-    #}
+  }
 
-  
-  $db->insert( session => $model, sub {
-    say Dumper($@);
-
-    $self->render(
-      status => 502,
-      json => { status => 'This method has not been implemented yet' }
-    );
-  });
 }
 
 

@@ -13,7 +13,7 @@ sub startup {
           user      => 'echidna',
           name      => 'echidna',
           pass      => 'ech1dna',
-          pool_size => 2,
+          pool_size => 10,
           debug     => 1,
       });
   });
@@ -54,7 +54,6 @@ sub startup {
   $route->post('/')->to('session#collection_add');
   $route->delete('/')->to('session#collection_delete');
 
-  $route = $router->under('/api/session');
   $route->get('/:id', { id => qr/\d+/ })->to('session#id_get');
   $route->put('/:id', { id => qr/\d+/ })->to('session#id_update');
   $route->delete('/:id', { id => qr/\d+/ })->to('session#id_delete');

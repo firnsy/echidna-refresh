@@ -15,6 +15,8 @@ use Data::Dumper;
 use DBD::mysql;
 use DBI;
 use Digest::SHA qw(sha256_hex);
+use File::Basename;
+use File::Copy;
 use Mojo::JSON;
 use Mojolicious::Lite;
 use Mojo::IOLoop;
@@ -38,9 +40,11 @@ my $CONF = {
     key    => 'abce',
   },
   cxtracker => {
-    dir  => '/var/log/cxtracker',
-    regex => 'stats.*',
-    poll => 10,
+    dir      => './logs/cxtracker',
+    mode     => 'archive',
+    archive  => './logs/cxtracker/archive',
+    regex    => 'stats.*',
+    poll     => 10,
   },
 };
 
@@ -118,9 +122,65 @@ sub _get_sessions {
   }
 }
 
+sub _cleanup_inserted {
+  my $file = shift;
+
+  my $mode = $CONF->{cxtracker}{mode} //= 'delete';
+
+  if( $mode eq 'archive' )
+  {
+    my $destination = $CONF->{cxtracker}{archive} . '/' . basename( $file );
+    say("D: Archiving " . $file . " -> " . $destination);
+
+    if( -d $CONF->{cxtracker}{archive} )
+    {
+
+      if( ! move( $file, $destination ) )
+      {
+        say('E: Unable to archive: ' . $file);
+      }
+    }
+    else
+    {
+      say('E: Archive directory does not exist!');
+    }
+  }
+  else
+  {
+    say('D: Deleting ' . $file);
+
+    if( ! unlink($file) )
+    {
+      say('E: Failed to delete: ' . $file);
+    }
+  }
+}
+
+
+sub _cleanup_check {
+  $CONF->{_files} //= {};
+
+  for my $f ( keys( %{ $CONF->{_files} } ) )
+  {
+    my $stats = $CONF->{_files}{$f};
+
+    if( $stats->{count} == $stats->{insert} )
+    {
+      delete( $CONF->{_files}{$f} );
+      _cleanup_inserted($f);
+    }
+    elsif( $stats->{count} == $stats->{duplicate} )
+    {
+      delete( $CONF->{_files}{$f} );
+      _cleanup_inserted($f);
+    }
+  }
+}
+
 sub _process {
   my $dir = $CONF->{cxtracker}{dir};
   my $regex = $CONF->{cxtracker}{regex};
+
   say('D: Checking dir: ' . $dir);
 
   if( opendir my $dh, $dir )
@@ -150,13 +210,35 @@ sub _process {
 
         if( @{ $sessions } )
         {
+          $CONF->{_files}{$file} = {
+            count     => scalar @{ $sessions },
+            insert    => 0,
+            duplicate => 0,
+            fail      => 0,
+          };
+
           for my $session ( @{ $sessions } )
           {
             say("Posting to: " . $CONF->{_session_uri} . '/api/sessions');
 
             $CONF->{_ua}->post_json($CONF->{_session_uri} . '/api/sessions' => $session => sub {
               my ($ua, $tx) = @_;
-              say $tx->res->code();
+              #            say Dumper($tx);
+
+              if( $tx->res->code() == 200 )
+              {
+                $CONF->{_files}{$file}{insert}++;
+              }
+              elsif( $tx->res->code() == 502 )
+              {
+                $CONF->{_files}{$file}{duplicate}++;
+              }
+              else
+              {
+                $CONF->{_files}{$file}{fail}++;
+              }
+
+              _cleanup_check();
             });
           }
 
@@ -166,10 +248,6 @@ sub _process {
           say('D: Session record(s) sent in ' . $process_time . ' seconds');
         }
 
-#        if( ! unlink($file) )
-#        {
-#          say('E: Failed to delete: ' . $file);
-#        }
       }
     }
     closedir($dh);

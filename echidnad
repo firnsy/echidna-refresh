@@ -59,7 +59,11 @@ sub _agent_status_check {
   {
     say("D: checking agent: $a");
 
-    if( ref($AGENTS->{$a}{_ua}) eq 'Mojo::UserAgent' ) {
+    # TODO: slightly hacky tapping the UA's internal connections
+    # property to see if the websocket connection is still active
+    if( ( ref($AGENTS->{$a}{_ua}) eq 'Mojo::UserAgent' ) &&
+        ( keys %{ $AGENTS->{$a}{_ua}{connections} } ) )
+    {
       next;
     }
     else
@@ -67,7 +71,6 @@ sub _agent_status_check {
       say("D: building agent comms: $a");
     }
 
-    $AGENTS->{$a}{_ua} = Mojo::UserAgent->new();
     $AGENTS->{$a}{_ua}->on(error => sub {
       my ($ua, $err) = @_;
       say "This looks bad: $err";
@@ -77,6 +80,11 @@ sub _agent_status_check {
 
     $AGENTS->{$a}{_ua}->websocket('ws://localhost:6969/echo' => sub {
       my ($ua, $tx) = @_;
+
+      $tx->on(connection => sub {
+        my( $tx, $connection) = @_;
+        say Dumper($connection);
+      });
 
       $tx->on(message => sub {
         my ($tx, $msg) = @_;
@@ -117,6 +125,8 @@ sub _agent_status_check {
                 $AGENTS->{$a}{_ping} = Mojo::IOLoop->recurring( 5 => sub {
                   my $json = Mojo::JSON->new();
 
+                  say("D: ping");
+
                   $tx->send($json->encode({
                     type => 'ping',
                     time => time()
@@ -130,6 +140,7 @@ sub _agent_status_check {
             }
             when('ping')
             {
+              say("D: got pong");
             }
             default {
               say Dumper($msg);
@@ -141,14 +152,12 @@ sub _agent_status_check {
       $tx->on(finish => sub {
         say 'WebSocket closed.';
 
-        # clean up heartbeat if appropriate
+        # clean up heartbeat as appropriate
         if( defined($AGENTS->{$a}{_ping}) )
         {
           my $_timer_id = delete( $AGENTS->{$a}{_ping} );
           Mojo::IOLoop->remove( $_timer_id );
         }
-
-        delete( $AGENTS->{$a}{_ua} );
       });
 
       my $json = Mojo::JSON->new();
@@ -166,6 +175,7 @@ sub _agent_setup {
   foreach my $a ( keys %{ $CONF->{agents} } )
   {
     $AGENTS->{$a} = $CONF->{agents}{$a};
+    $AGENTS->{$a}{_ua} = Mojo::UserAgent->new();
   }
 
   say("Starting agent checks ... ");

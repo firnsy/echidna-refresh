@@ -77,7 +77,7 @@ sub _setup {
 
                           say "dbh is dead we need to take care of this" if $fatal;
                           #$self->return_handle($dbh);
-                          carp "DBI Error: $@ at $location:$line";
+                          carp "DBI Error: $@ at $location:$line" if $self->{__debug};
 
                       };
 

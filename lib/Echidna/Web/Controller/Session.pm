@@ -73,14 +73,26 @@ sub collection_add {
   my $data = {};
   my $model;
   eval {
-   $data = $json->decode( $self->req()->body() );
-   $model = Echidna::Model::Session->new( $data );
+    $data = $json->decode( $self->req()->body() );
+    $model = Echidna::Model::Session->new( $data );
 
     $db->insert( session => $model, sub {
-      $self->render(
-        status => 502,
-        json => { status => 'This method has not been implemented yet' }
-      );
+      my( $rv, $error ) = @_;
+
+      if( defined($error) )
+      {
+        $self->render(
+          status => 502,
+          json => { status => 'Error.' }
+        );
+      }
+      else
+      {
+        $self->render(
+          status => 200,
+          json => { status => 'Success.' }
+        );
+      }
     });
   };
   if( $@ )

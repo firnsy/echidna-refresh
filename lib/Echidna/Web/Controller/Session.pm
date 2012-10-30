@@ -68,7 +68,7 @@ sub collection_add {
   my $self = shift;
   my $db = $self->db;
 
-  my $json = Mojo::JSON;
+  my $json = Mojo::JSON->new();
 
   my $data = {};
   my $model;
@@ -77,8 +77,6 @@ sub collection_add {
    $model = Echidna::Model::Session->new( $data );
 
     $db->insert( session => $model, sub {
-      say Dumper($@);
-
       $self->render(
         status => 502,
         json => { status => 'This method has not been implemented yet' }
@@ -109,7 +107,7 @@ sub id_get {
   my $id = $self->param('id') || '';
 
   if( $id ~~ /\d+/ )
-
+  {
     $db->search(session => { id => $id }, sub {
       my $session = shift;
 
@@ -118,6 +116,7 @@ sub id_get {
         any  => { json => $session },
       );
     });
+  }
   else
   {
     $self->render(json => {

@@ -1,18 +1,18 @@
 package Echidna::Web::Server;
 use Mojo::Base 'Mojolicious';
 
-use Echidna::Service::Database;
+use Echidna::Database;
 
 sub startup {
   my $self = shift;
 
   $self->helper(db => sub {
-    Echidna::Service::Database->new(
+    Echidna::Database->new(
       dbi => {
-          driver    => 'mysql',
+          type      => 'mysql',
           user      => 'echidna',
-          database  => 'echidna',
-          password  => 'ech1dna',
+          name      => 'echidna',
+          pass      => 'ech1dna',
           pool_size => 2,
           debug     => 1,
       });

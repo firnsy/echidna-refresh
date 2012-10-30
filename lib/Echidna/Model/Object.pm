@@ -82,6 +82,10 @@ sub validate_type {
             #croak { message => "IP type expected on '$key' accessor" }
             #    unless $value ~~ /\A\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\Z/;
         }
+        when(/sha256/) {
+            throw 'ValidationError', "SHA256 type expected on '$key' accessor"
+                unless $value ~~ /\A[A-Fa-f0-9]{64}\Z/;
+        }
         when(/int/) {
             throw 'ValidationError', "Integer type expected on '$key' accessor"
                 unless $value ~~ /\A\d+\Z/;

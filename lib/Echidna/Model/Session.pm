@@ -8,7 +8,7 @@ use base qw(Echidna::Model::Object);
 __PACKAGE__->set_properties({
     # required
     id                    => ['int'],
-    node_id               => ['int'],
+    node_id               => ['sha256'],
     time_start            => ['datetime'],
     time_end              => ['datetime'],
     net_src_ip            => ['ip'],

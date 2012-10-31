@@ -8,7 +8,7 @@ use Echidna::Model::Session;
 
 sub collection_get {
   my $self = shift;
-  my $db   = $self->db;
+  my $db   = $self->db();
 
   Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
@@ -66,12 +66,13 @@ sub collection_get {
 
 sub collection_add {
   my $self = shift;
-  my $db = $self->db;
+  my $db = $self->db();
 
   my $json = Mojo::JSON->new();
 
   my $data = {};
   my $model;
+
   eval {
     $data = $json->decode( $self->req()->body() );
     $model = Echidna::Model::Session->new( $data );
@@ -104,18 +105,22 @@ sub collection_add {
     );
   }
 
+  # we'll render via callbacks
+  $self->render_later();
 }
 
 
 sub collection_delete {
   my $self = shift;
-  my $db = $self->db;
+
+  my $db = $self->db();
 }
+
 
 sub id_get {
   my $self = shift;
 
-  my $db = $self->app->db;
+  my $db = $self->app->db();
   my $id = $self->param('id') || '';
 
   if( $id ~~ /\d+/ )
@@ -135,10 +140,14 @@ sub id_get {
      error => 'Invalid Id for Session Resource.'
     });
   }
+
+  # we'll render via callbacks
+  $self->render_later();
 }
 
 sub id_add {
   my $self = shift;
+
   $self->render(
     status => 501,
     json => { status => 'This method has not been implemented yet' }
@@ -147,6 +156,7 @@ sub id_add {
 
 sub id_delete {
   my $self = shift;
+
   $self->render(
     status => 501,
     json => { status => 'This method has not been implemented yet' }

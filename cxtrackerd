@@ -83,23 +83,26 @@ sub _get_sessions {
 
       my @elements = split(/\|/, $line);
 
-      my $data_filename = '';
-      my $data_offset = 0;
-      my $data_length = 0;
+      my $file_name_start = '';
+      my $file_offset_start = 0;
+
+      my $file_name_end = '';
+      my $file_offset_end = 0;
 
       if( @elements == 15 )
       {
         say('D: No indexing available for session.');
       }
-      elsif( @elements == 18 )
+      elsif( @elements == 19 )
       {
-        $data_filename = $elements[15];
-        $data_offset   = $elements[16];
-        $data_length   = $elements[17];
+        $file_name_start   = $elements[15];
+        $file_offset_start = $elements[16];
+        $file_name_end     = $elements[17];
+        $file_offset_end   = $elements[18];
       }
       else
       {
-        say('E: Not valid number of session args format in: ' . $sfile);
+        say('E: Unknown cxtracker format detected. Found ' . scalar @elements . ' elements.');
         next;
       }
 
@@ -123,9 +126,10 @@ sub _get_sessions {
         net_dst_total_packets => $elements[11],
         net_dst_total_bytes   => $elements[12],
         net_dst_flags         => $elements[14],
-        data_filename         => $data_filename,
-        data_offset           => $data_offset,
-        data_length           => $data_length,
+        file_name_start       => $file_name_start,
+        file_offset_start     => $file_offset_start,
+        file_name_end         => $file_name_end,
+        file_offset_end       => $file_offset_end,
         meta_cxt_id           => $elements[0],
       });
     }

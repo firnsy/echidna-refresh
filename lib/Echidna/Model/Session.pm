@@ -22,14 +22,15 @@ __PACKAGE__->set_properties({
     net_dst_total_packets => ['int'],
 
     # optional
-    timestamp     => 'timestamp',
-    time_duration => 'text',
-    net_version   => 'int',
-    net_src_flags => 'int',
-    net_dst_flags => 'int',
-    data_filename => 'text',
-    data_offset   => 'any',
-    data_length   => 'any',
+    timestamp          => 'timestamp',
+    time_duration      => 'text',
+    net_version        => 'int',
+    net_src_flags      => 'int',
+    net_dst_flags      => 'int',
+    file_name_start    => 'text',
+    file_offset_start  => 'any',
+    file_name_end      => 'text',
+    file_offset_end    => 'any',
     meta          => 'any',
 });
 

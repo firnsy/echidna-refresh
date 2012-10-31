@@ -96,7 +96,7 @@ sub validate_type {
         }
         when(/text/) {
             throw 'ValidationError', "Text type expected on '$key' accessor"
-                unless $value ~~ /[a-z0-1.,-_ ]+/i;
+                unless $value ~~ /[a-z0-1.,-_ ]*/i;
         }
         when(/datetime/) {
             throw 'ValidationError', "Datetime type expected on '$key' accessor"

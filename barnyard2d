@@ -1,0 +1,176 @@
+#!/usr/bin/perl
+#
+#
+#
+
+use warnings;
+use strict;
+
+use 5.010;
+
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
+use DBD::mysql;
+use DBI;
+use Digest::SHA qw(sha256_hex);
+use File::Basename;
+use File::Copy;
+use Mojo::JSON;
+use Mojolicious::Lite;
+use Mojo::IOLoop;
+use Mojo::UserAgent;
+
+#
+# GLOBALS
+#
+
+#
+# CONFIGURATION
+#
+
+my $CONF = {
+  network => {
+    host => 'localhost',
+    port => 6968,
+  },
+  auth => {
+    secret => 'woot',
+    key    => 'abce',
+  },
+  barnyard2 => {
+    key      => 'password',
+  },
+};
+
+
+#
+# HELPERS
+#
+
+=head2 _get_sessions
+
+ This sub extracts the session data from a session data file.
+ Takes $file as input parameter.
+
+=cut
+
+#
+# WEBSOCKET
+#
+
+websocket '/control' => sub {
+  my $self = shift;
+
+  # connected
+  $self->app->log->debug('WebSocket connected.');
+
+  # Increase inactivity timeout for connection a bit
+  Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
+
+  # Incoming message
+  $self->on(message => sub {
+    my ($self, $msg) = @_;
+
+    my $json = Mojo::JSON->new();
+
+    eval {
+      $msg = $json->decode($msg);
+    };
+
+    if( $@ ) {
+      say("E: unable to decode message: ", Dumper( $msg ) );
+    }
+
+    my $res = {
+      type => $msg->{type} //= 'unknown'
+    };
+
+    given( $msg->{type} )
+    {
+      #
+      # UPSTREAM MESSAGES
+      when('auth_request')
+      {
+        $msg->{nonce} //= '';
+
+        if( $msg->{nonce} eq '' )
+        {
+          $res->{status} = 500;
+        }
+        else
+        {
+          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{auth}{secret} );
+          $res->{status} = 200;
+        }
+      }
+      when('auth_validate')
+      {
+        $CONF->{_session_key} = $msg->{session_key};
+        $CONF->{_session_uri} = $msg->{session_uri};
+        $res->{status} = 200;
+
+        say('Session key granted: ' . $CONF->{_session_key} . ' (' . $CONF->{_session_uri} . ')');
+      }
+      when('ping')
+      {
+        $res->{time} = time(),
+        $res->{stt} = $msg->{time} - $res->{time}
+      }
+
+      #
+      # BARNYARD2 MESSAGES
+      when('by_auth_request')
+      {
+        $msg->{key} //= '';
+        if( $msg->{key} eq $CONF->{barnyard2}{key} )
+        {
+          $res->{session_key} = $CONF->{_session_key};
+          $res->{session_uri} = $CONF->{_session_uri};
+        }
+      }
+
+      #
+      # CATCH ALL
+      default {
+        say Dumper($msg);
+      }
+    }
+
+    $self->send( $json->encode( $res ) );
+  });
+
+  # Disconnected
+  $self->on(finish => sub {
+    my $self = shift;
+    $self->app->log->debug('WebSocket disconnected.');
+  });
+
+  $self->on(error => sub {
+    my $self = shift;
+    say( Dumper( $@ ) ); 
+    $self->app->log->debug('ERROR');
+  });
+};
+
+#
+# ROUTES
+#
+
+
+
+
+#
+# INIT
+#
+
+
+$CONF->{_ua} = Mojo::UserAgent->new();
+
+
+app->config(hypnotoad => {listen => ['http://' . $CONF->{network}{host} . '/' . $CONF->{network}{port}]});
+
+app->secret('cxtrackerd');
+app->start();
+

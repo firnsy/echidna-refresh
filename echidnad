@@ -36,6 +36,11 @@ my $CONF = {
     key    => 'asdd',
   },
   agents => {
+    barnyard2 => {
+      type => 'barnyard2',
+      host => 'localhost',
+      port => 6968,
+    },
     cxtracker => {
       type => 'cxtracker',
       host => 'localhost',
@@ -66,10 +71,6 @@ sub _agent_status_check {
     {
       next;
     }
-    else
-    {
-      say("D: building agent comms: $a");
-    }
 
     $AGENTS->{$a}{_ua}->on(error => sub {
       my ($ua, $err) = @_;
@@ -78,7 +79,7 @@ sub _agent_status_check {
 
     $AGENTS->{$a}{_nonce} = sha256_hex( time() );
 
-    $AGENTS->{$a}{_ua}->websocket('ws://localhost:6969/echo' => sub {
+    $AGENTS->{$a}{_ua}->websocket('ws://localhost:6969/control' => sub {
       my ($ua, $tx) = @_;
 
       $tx->on(connection => sub {

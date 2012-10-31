@@ -77,13 +77,27 @@ sub _get_sessions {
       $line =~ /^\d{19}/;
       unless($line)
       {
-        say('E: Not valid session start format in: ' . $sfile);
+        say('E: Invalid session start format in: ' . $sfile);
         next;
       }
 
       my @elements = split(/\|/, $line);
 
-      unless(@elements == 15)
+      my $data_filename = '';
+      my $data_offset = 0;
+      my $data_length = 0;
+
+      if( @elements == 15 )
+      {
+        say('D: No indexing available for session.');
+      }
+      elsif( @elements == 18 )
+      {
+        $data_filename = $elements[15];
+        $data_offset   = $elements[16];
+        $data_length   = $elements[17];
+      }
+      else
       {
         say('E: Not valid number of session args format in: ' . $sfile);
         next;
@@ -92,7 +106,7 @@ sub _get_sessions {
       # build the session structs
       push( @{ $sessions_data }, {
         id                    => $elements[0],
-        timestamp             => 0,
+        timestamp             => $elements[1],
         time_start            => $elements[1],
         time_end              => $elements[2],
         time_duration         => $elements[3],
@@ -109,9 +123,9 @@ sub _get_sessions {
         net_dst_total_packets => $elements[11],
         net_dst_total_bytes   => $elements[12],
         net_dst_flags         => $elements[14],
-        data_filename         => 'filename.ext',
-        data_offset           => 0,
-        data_length           => 0,
+        data_filename         => $data_filename,
+        data_offset           => $data_offset,
+        data_length           => $data_length,
         meta_cxt_id           => $elements[0],
       });
     }
@@ -208,15 +222,15 @@ sub _process {
         say('D: File ' . $file . ' processed in ' . $process_time . ' seconds');
         $start_time   = time();
 
+        $CONF->{_files}{$file} = {
+          count     => scalar @{ $sessions },
+          insert    => 0,
+          duplicate => 0,
+          fail      => 0,
+        };
+
         if( @{ $sessions } )
         {
-          $CONF->{_files}{$file} = {
-            count     => scalar @{ $sessions },
-            insert    => 0,
-            duplicate => 0,
-            fail      => 0,
-          };
-
           for my $session ( @{ $sessions } )
           {
             say("Posting to: " . $CONF->{_session_uri} . '/api/sessions');
@@ -247,7 +261,10 @@ sub _process {
 
           say('D: Session record(s) sent in ' . $process_time . ' seconds');
         }
-
+        else
+        {
+          _cleanup_check();
+        }
       }
     }
     closedir($dh);
@@ -294,10 +311,10 @@ sub _process_stop {
 # WEBSOCKET
 #
 
-websocket '/echo' => sub {
+websocket '/control' => sub {
   my $self = shift;
 
-  #Connected
+  # connected
   $self->app->log->debug('WebSocket connected.');
 
   # Increase inactivity timeout for connection a bit
@@ -369,7 +386,7 @@ websocket '/echo' => sub {
 
   $self->on(error => sub {
     my $self = shift;
-    say( Dumper( $@ ) ); 
+    say( Dumper( $@ ) );
     $self->app->log->debug('ERROR');
     #_process_stop();
   });

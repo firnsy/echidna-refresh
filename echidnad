@@ -62,8 +62,6 @@ $ENV{MOJO_APP} = 'Echidna::Web::Server';
 sub _agent_status_check {
   foreach my $a ( keys %{ $AGENTS } )
   {
-    say("D: checking agent: $a");
-
     # TODO: slightly hacky tapping the UA's internal connections
     # property to see if the websocket connection is still active
     if( ( ref($AGENTS->{$a}{_ua}) eq 'Mojo::UserAgent' ) &&
@@ -72,6 +70,10 @@ sub _agent_status_check {
       next;
     }
 
+    my $ws_control = 'ws://' . $AGENTS->{$a}{host} . ':' . $AGENTS->{$a}{port} . '/control';
+
+    say("D: checking agent: $a ($ws_control)");
+
     $AGENTS->{$a}{_ua}->on(error => sub {
       my ($ua, $err) = @_;
       say "This looks bad: $err";
@@ -79,7 +81,7 @@ sub _agent_status_check {
 
     $AGENTS->{$a}{_nonce} = sha256_hex( time() );
 
-    $AGENTS->{$a}{_ua}->websocket('ws://localhost:6969/control' => sub {
+    $AGENTS->{$a}{_ua}->websocket($ws_control => sub {
       my ($ua, $tx) = @_;
 
       $tx->on(connection => sub {

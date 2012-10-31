@@ -98,7 +98,6 @@ sub collection_add {
   };
   if( $@ )
   {
-    say Dumper($@);
     $self->render(
       status => 500,
       json => { status => 'Error inserting data.' }

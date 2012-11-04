@@ -1,6 +1,25 @@
 #!/usr/bin/perl
 #
+# This file is part of the NSM framework
 #
+# Copyright (C) 2010-2012, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
 use warnings;
@@ -11,16 +30,20 @@ use 5.010;
 #
 # PERL INCLUDES
 #
+use AnyEvent;
+use AnyEvent::Handle;
+use AnyEvent::Socket;
+use AnyEvent::Util qw(fh_nonblocking AF_INET6);
+use Carp;
 use Data::Dumper;
-use DBD::mysql;
-use DBI;
 use Digest::SHA qw(sha256_hex);
-use File::Basename;
-use File::Copy;
+
 use Mojo::JSON;
 use Mojolicious::Lite;
 use Mojo::IOLoop;
 use Mojo::UserAgent;
+
+use Socket qw(AF_INET AF_UNIX SOCK_STREAM SOCK_DGRAM SOL_SOCKET SO_REUSEADDR);
 
 #
 # GLOBALS
@@ -40,7 +63,9 @@ my $CONF = {
     key    => 'abce',
   },
   barnyard2 => {
-    key      => 'password',
+    host => 'localhost',
+    port => 6968,
+    key  => 'password',
   },
 };
 
@@ -49,12 +74,6 @@ my $CONF = {
 # HELPERS
 #
 
-=head2 _get_sessions
-
- This sub extracts the session data from a session data file.
- Takes $file as input parameter.
-
-=cut
 
 #
 # WEBSOCKET
@@ -72,6 +91,8 @@ websocket '/control' => sub {
   # Incoming message
   $self->on(message => sub {
     my ($self, $msg) = @_;
+
+    say Dumper($msg);
 
     my $json = Mojo::JSON->new();
 
@@ -108,7 +129,7 @@ websocket '/control' => sub {
       when('auth_validate')
       {
         $CONF->{_session_key} = $msg->{session_key};
-        $CONF->{_session_uri} = $msg->{session_uri};
+        $CONF->{_session_uri} = 'http://' . $msg->{session_uri} . '/api/events';
         $res->{status} = 200;
 
         say('Session key granted: ' . $CONF->{_session_key} . ' (' . $CONF->{_session_uri} . ')');
@@ -121,20 +142,22 @@ websocket '/control' => sub {
 
       #
       # BARNYARD2 MESSAGES
-      when('by_auth_request')
+      when('by2_auth_request')
       {
         $msg->{key} //= '';
-        if( $msg->{key} eq $CONF->{barnyard2}{key} )
+        if( ( $msg->{key} eq $CONF->{barnyard2}{key} ) &&
+            defined($CONF->{_session_key}) )
         {
-          $res->{session_key} = $CONF->{_session_key};
-          $res->{session_uri} = $CONF->{_session_uri};
+          $res->{session_key} = $CONF->{_session_key} // '';
+          $res->{session_uri} = $CONF->{_session_uri} // '';
+          $res->{node_id} = 'barnayard2';
         }
       }
 
       #
       # CATCH ALL
       default {
-        say Dumper($msg);
+        say "Unknown message ...";
       }
     }
 
@@ -167,7 +190,6 @@ websocket '/control' => sub {
 
 
 $CONF->{_ua} = Mojo::UserAgent->new();
-
 
 app->config(hypnotoad => {listen => ['http://' . $CONF->{network}{host} . '/' . $CONF->{network}{port}]});
 

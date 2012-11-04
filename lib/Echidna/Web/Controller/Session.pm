@@ -61,6 +61,9 @@ sub collection_get {
       );
     });
   }
+
+  # we'll render via callbacks
+  $self->render_later();
 }
 
 
@@ -136,7 +139,7 @@ sub id_get {
   else
   {
     $self->render(json => {
-     error => 'Invalid Id for Session Resource.'
+      error => 'Invalid Id for Session Resource.'
     });
   }
 

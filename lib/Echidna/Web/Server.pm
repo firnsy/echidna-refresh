@@ -48,6 +48,17 @@ sub startup {
   my $route;
 
   #
+  # build event routes
+  $route = $router->under('/api/events');
+  $route->get('/')->to('event#collection_get');
+  $route->post('/')->to('event#collection_add');
+  $route->delete('/')->to('event#collection_delete');
+
+  $route->get('/:id', { id => qr/\d+/ })->to('event#id_get');
+  $route->put('/:id', { id => qr/\d+/ })->to('event#id_update');
+  $route->delete('/:id', { id => qr/\d+/ })->to('event#id_delete');
+
+  #
   # build session routes
   $route = $router->under('/api/sessions');
   $route->get('/')->to('session#collection_get');

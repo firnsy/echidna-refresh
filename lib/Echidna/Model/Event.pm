@@ -7,7 +7,7 @@ use base qw(Echidna::Model::Object);
 
 __PACKAGE__->set_properties({
     id             => ['int'],
-    node_id        => ['int'],
+    node_id        => ['text'],
     net_src_ip     => ['ip'],
     net_src_port   => ['int'],
     net_dst_ip     => ['ip'],
@@ -20,8 +20,8 @@ __PACKAGE__->set_properties({
     sig_id         => 'int',
     sig_revision   => 'int', 
     sig_priority   => 'int',
-    sig_message    => 'int',
-    sig_category   => 'int',
+    sig_message    => 'text',
+    sig_category   => 'text',
     meta           => 'text',
 });
 

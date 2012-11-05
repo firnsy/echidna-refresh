@@ -8,6 +8,7 @@ use base qw(Echidna::Database::Base);
 use AnyEvent;
 use AnyEvent::DBI;
 use Carp;
+use DBI;
 
 use Data::Dumper;
 use Echidna::Model;
@@ -66,6 +67,11 @@ sub _setup {
 
     $instance->{__dsn} = join(":", "dbi", $args->{type}, $args->{name});
 
+    # perform a credentials check before we build the pool
+    if( ! DBI->connect( $instance->{__dsn}, $instance->{__user}, $instance->{__password} ) ) {
+        croak "Error - Unable to connect with those credentials";
+    }
+
     for (1..$instance->{__total}) {
         my $dbi = new AnyEvent::DBI
                       $instance->{__dsn},
@@ -81,8 +87,10 @@ sub _setup {
 
                       };
 
-        # enabling mysql reconnect
-        $dbi->attr('mysql_auto_reconnect', 1, sub {});
+        if( $dtype eq 'mysql' ) {
+            # enabling mysql reconnect
+            $dbi->attr('mysql_auto_reconnect', 1, sub {});
+        }
 
         $instance->{__pool}->{$dbi->{child_pid}} = $dbi;
 
@@ -98,6 +106,19 @@ sub _setup {
     $instance->{__running}->{$_} = 0 for @pids;
 
     $instance->_autoload_models();
+}
+
+sub close {
+    my $self = shift;
+
+    for my $dbh ( keys %{ $self->{__pool} } ) {;
+        say "Cleaning DBI pid: " . $dbh if ( $self->{__debug} );
+        delete( $self->{__pool}{ $dbh } );
+    }
+}
+
+sub DESTROY {
+  shift->close();
 }
 
 sub pool_size {
@@ -147,7 +168,6 @@ sub fetch {
         say "Selected PID: " .$dbh->{child_pid};
         say "Fetched:      " .ref $dbh;
         my @pids_current = @{ $self->{__idle} };
-        say;
     }
 
     return $dbh;

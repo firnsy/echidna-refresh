@@ -30,20 +30,12 @@ use 5.010;
 #
 # PERL INCLUDES
 #
-use AnyEvent;
-use AnyEvent::Handle;
-use AnyEvent::Socket;
-use AnyEvent::Util qw(fh_nonblocking AF_INET6);
-use Carp;
 use Data::Dumper;
 use Digest::SHA qw(sha256_hex);
-
 use Mojo::JSON;
 use Mojolicious::Lite;
 use Mojo::IOLoop;
 use Mojo::UserAgent;
-
-use Socket qw(AF_INET AF_UNIX SOCK_STREAM SOCK_DGRAM SOL_SOCKET SO_REUSEADDR);
 
 #
 # GLOBALS
@@ -150,7 +142,7 @@ websocket '/control' => sub {
         {
           $res->{session_key} = $CONF->{_session_key} // '';
           $res->{session_uri} = $CONF->{_session_uri} // '';
-          $res->{node_id} = 'barnayard2';
+          $res->{node_id} = '3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b';
         }
       }
 

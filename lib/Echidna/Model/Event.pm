@@ -8,7 +8,7 @@ use base qw(Echidna::Model::Object);
 __PACKAGE__->set_properties({
     # required
 
-    # sha256(concat(timestamp,net_src_ip,net_src_port,net_dst_ip,net_dst_port,net_protocol))
+    # sha256(concat(net_src_ip,net_src_port,net_dst_ip,net_dst_port,net_protocol,timestamp))
     id                => ['sha256'],
     node_id           => ['sha256'],
 
@@ -31,7 +31,7 @@ __PACKAGE__->set_properties({
     sig_revision      => ['int'], 
     sig_category      => ['text'],
     sig_priority      => ['int'],
-    classification    => ['text'],
+    classification    => ['int'],
 
     # optional
     sig_message       => 'text',

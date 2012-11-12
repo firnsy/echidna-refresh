@@ -48,14 +48,10 @@ use Mojo::UserAgent;
 #
 
 my $CONF = {
-  network => {
-    host => 'localhost',
-    port => 6969,
-  },
-  auth => {
-    secret => 'woot',
-    key    => 'abce',
-  },
+  host => 'localhost',
+  port => 6969,
+  secret => 'woot',
+  key    => 'abce',
   cxtracker => {
     dir      => './logs/cxtracker',
     mode     => 'archive',
@@ -372,7 +368,7 @@ websocket '/control' => sub {
         }
         else
         {
-          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{auth}{secret} );
+          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{secret} );
           $res->{status} = 200;
         }
       }
@@ -429,7 +425,7 @@ websocket '/control' => sub {
 $CONF->{_ua} = Mojo::UserAgent->new();
 
 
-app->config(hypnotoad => {listen => ['http://' . $CONF->{network}{host} . '/' . $CONF->{network}{port}]});
+app->config(hypnotoad => {listen => ['http://' . $CONF->{host} . '/' . $CONF->{port}]});
 
 app->secret('cxtrackerd');
 app->start();

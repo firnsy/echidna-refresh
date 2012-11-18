@@ -9,7 +9,7 @@ CREATE TABLE node (
   network               TEXT                  NOT NULL,
   status_state          INT(10) UNSIGNED      NOT NULL,
   status_timestamp      DATETIME              NOT NULL,
-  conf                  VARCHAR(32768)        DEFAULT '{}',
+  conf                  TEXT,
   description           TEXT,
   PRIMARY KEY (id)
 );

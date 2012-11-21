@@ -162,13 +162,15 @@ sub _agent_status_check {
         }
       });
 
-      my $json = Mojo::JSON->new();
+      # initialise authentication was we've upgraded to a websocket
+      if( $tx->is_websocket ) {
+        my $json = Mojo::JSON->new();
 
-      # initialise authentication
-      $tx->send($json->encode({
-        type  => 'auth_request',
-        nonce => $AGENTS->{$a}{_nonce}
-      }));
+        $tx->send($json->encode({
+          type  => 'auth_request',
+          nonce => $AGENTS->{$a}{_nonce}
+        }));
+      }
     });
   }
 }

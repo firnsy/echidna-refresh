@@ -69,6 +69,17 @@ sub startup {
   $route->put('/:id', { id => qr/\d+/ })->to('session#id_update');
   $route->delete('/:id', { id => qr/\d+/ })->to('session#id_delete');
 
+  #
+  # build pdns routes
+  $route = $router->under('/api/pdns');
+  $route->get('/')->to('pdns#collection_get');
+  $route->post('/')->to('pdns#collection_add');
+  $route->delete('/')->to('pdns#collection_delete');
+
+  $route->get('/:id', { id => qr/\d+/ })->to('pdns#id_get');
+  $route->put('/:id', { id => qr/\d+/ })->to('pdns#id_update');
+  $route->delete('/:id', { id => qr/\d+/ })->to('pdns#id_delete');
+
 
 }
 

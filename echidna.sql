@@ -76,6 +76,23 @@ CREATE TABLE session (
   KEY ssn_corr_ix (ssn_corr_id)
 );
 
+DROP TABLE IF EXISTS pdns;
+CREATE TABLE pdns (
+  id                    VARCHAR(64)           NOT NULL,
+  node_id               VARCHAR(64)           NOT NULL,
+
+  timestamp             DATETIME              NOT NULL,
+  client                DECIMAL(39,0)         NOT NULL,
+  server                DECIMAL(39,0)         NOT NULL,
+  query                 TEXT,
+  query_answer          TEXT,
+  query_type            TEXT,
+  answer                TEXT,
+  ttl                   INT(10) UNSIGNED      NOT NULL,
+  PRIMARY KEY (id),
+  KEY node_ix (node_id)
+);
+
 
 DROP TABLE IF EXISTS signature;
 CREATE TABLE signature (

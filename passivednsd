@@ -1,0 +1,400 @@
+#!/usr/bin/perl
+#
+# This file is part of the NSM framework
+#
+# Copyright (C) 2010-2012, Edward Fjellskål <edwardfjellskaal@gmail.com>
+#                          Eduardo Urias    <windkaiser@gmail.com>
+#                          Ian Firns        <firnsy@securixlive.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License Version 2 as
+# published by the Free Software Foundation.  You may not use, modify or
+# distribute this program under any other version of the GNU General
+# Public License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+use warnings;
+use strict;
+
+use 5.010;
+
+#
+# PERL INCLUDES
+#
+use Data::Dumper;
+use Digest::SHA qw(sha256_hex);
+use File::Basename;
+use File::Copy;
+use Mojo::JSON;
+use Mojolicious::Lite;
+use Mojo::IOLoop;
+use Mojo::UserAgent;
+
+#
+# GLOBALS
+#
+
+#
+# CONFIGURATION
+#
+
+my $CONF = {
+  host => 'localhost',
+  port => 6967,
+  secret => 'woot',
+  key    => 'abce',
+  passivedns => {
+    dir      => './logs/passivedns',
+    mode     => 'archive',
+    archive  => './logs/passivedns/archive',
+    regex    => '.*',
+    poll     => 10,
+  },
+};
+
+
+#
+# HELPERS
+#
+
+=head2 _get_records
+
+ This sub extracts the DNS data from a passivedns data file.
+ Takes $file as input parameter.
+
+=cut
+
+sub _get_records {
+  my ($sfile, $node_id) = @_;
+
+  my $dns_data = [];
+
+  say('D: Record file found: ' . $sfile);
+
+  if( open(FILE, $sfile) )
+  {
+    my $cnt = 0;
+    # verify the data in the dns data files
+    while( my $line = readline FILE )
+    {
+      chomp $line;
+      $line =~ /^\d{10}/;
+      unless($line)
+      {
+        say('E: Invalid DNS start format in: ' . $sfile);
+        next;
+      }
+
+      my @elements = split(/\|\|/, $line);
+
+      if( @elements != 8 )
+      {
+        say 'E: Unknown passivedns format detected.';
+        next;
+      }
+
+      # build the dns structs
+      push( @{ $dns_data }, {
+        id                    => sha256_hex(@elements[0..2]),
+        node_id               => $node_id,
+        timestamp             => $elements[0],
+        client                => $elements[1],
+        server                => $elements[2],
+        rr_class              => $elements[3],
+        query                 => $elements[4],
+        query_type            => $elements[5],
+        answer                => $elements[6],
+        ttl                   => $elements[8],
+      });
+    }
+
+    close FILE;
+
+    return $dns_data;
+  }
+}
+
+sub _cleanup_inserted {
+  my $file = shift;
+
+  my $mode = $CONF->{passivedns}{mode} //= 'delete';
+
+  if( $mode eq 'archive' )
+  {
+    my $destination = $CONF->{passivedns}{archive} . '/' . basename( $file );
+    say("D: Archiving " . $file . " -> " . $destination);
+
+    if( -d $CONF->{passivedns}{archive} )
+    {
+
+      if( ! move( $file, $destination ) )
+      {
+        say('E: Unable to archive: ' . $file);
+      }
+    }
+    else
+    {
+      say('E: Archive directory does not exist!');
+    }
+  }
+  else
+  {
+    say('D: Deleting ' . $file);
+
+    if( ! unlink($file) )
+    {
+      say('E: Failed to delete: ' . $file);
+    }
+  }
+}
+
+
+sub _cleanup_check {
+  $CONF->{_files} //= {};
+
+  for my $f ( keys( %{ $CONF->{_files} } ) )
+  {
+    my $stats = $CONF->{_files}{$f};
+
+    if( $stats->{count} == $stats->{insert} )
+    {
+      delete( $CONF->{_files}{$f} );
+      _cleanup_inserted($f);
+    }
+    elsif( $stats->{count} == $stats->{duplicate} )
+    {
+      delete( $CONF->{_files}{$f} );
+      _cleanup_inserted($f);
+    }
+  }
+}
+
+sub _process {
+  my $dir = $CONF->{passivedns}{dir};
+  my $regex = $CONF->{passivedns}{regex};
+
+  say('D: Checking dir: ' . $dir);
+
+  if( opendir my $dh, $dir )
+  {
+    while( my $file = readdir($dh) )
+    {
+      if( -f "$dir/$file" and $file =~ /$regex/)
+      {
+        $file = $dir . '/' . $file;
+
+        if( ! ( -r -w -f $file ) )
+        {
+          say('I: Insufficient permissions to operate on file: ' . $file);
+          return;
+        };
+
+        say('I: Found file: ' . $file);
+
+        my ($records, $start_time, $end_time, $process_time, $result);
+
+        $start_time   = time();
+        $records     = _get_records($file, $CONF->{_session_key});
+        $end_time     = time();
+        $process_time = $end_time - $start_time;
+        say('D: File ' . $file . ' processed in ' . $process_time . ' seconds');
+        $start_time   = time();
+
+        $CONF->{_files}{$file} = {
+          count     => scalar @{ $records },
+          insert    => 0,
+          duplicate => 0,
+          fail      => 0,
+        };
+
+        if( @{ $records } )
+        {
+          for my $record ( @{ $records } )
+          {
+            say("Posting to: " . $CONF->{_session_uri} . '/api/pdns');
+
+            $CONF->{_ua}->post_json($CONF->{_session_uri} . '/api/pdns' => $record => sub {
+              my ($ua, $tx) = @_;
+
+              if( $tx->res->code() == 200 )
+              {
+                $CONF->{_files}{$file}{insert}++;
+              }
+              elsif( $tx->res->code() == 502 )
+              {
+                $CONF->{_files}{$file}{duplicate}++;
+              }
+              else
+              {
+                $CONF->{_files}{$file}{fail}++;
+              }
+
+              _cleanup_check();
+            });
+          }
+
+          $end_time     = time();
+          $process_time = $end_time - $start_time;
+
+          say('D: DNS record(s) sent in ' . $process_time . ' seconds');
+        }
+        else
+        {
+          _cleanup_check();
+        }
+      }
+    }
+    closedir($dh);
+  }
+  else
+  {
+    say('D: Could not open ' . $dir);
+  }
+}
+
+sub _process_start {
+  if( defined($CONF->{_passivedns}{process_timer}) )
+  {
+    say("D: already processing.");
+    return;
+  }
+
+  # TODO: fanotify based watcher
+  # establish the poll process
+  $CONF->{_passivedns}{process_timer} = Mojo::IOLoop->recurring($CONF->{passivedns}{poll}, sub {
+    _process();
+  });
+
+  say Dumper($CONF);
+
+  _process();
+}
+
+sub _process_stop {
+
+  if( ! defined($CONF->{_passivedns}{process_timer}) )
+  {
+    say("D: not processing.");
+    return;
+  }
+
+  say("Stopping...");
+  Mojo::IOLoop->remove( $CONF->{_passivedns}{process_timer} );
+  delete( $CONF->{_passivedns}{process_timer} );
+}
+
+
+#
+# WEBSOCKET
+#
+
+websocket '/control' => sub {
+  my $self = shift;
+
+  # connected
+  $self->app->log->debug('WebSocket connected.');
+
+  # Increase inactivity timeout for connection a bit
+  Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
+
+  # Incoming message
+  $self->on(message => sub {
+    my ($self, $msg) = @_;
+
+    my $json = Mojo::JSON->new();
+
+    eval {
+      $msg = $json->decode($msg);
+    };
+
+    if( $@ ) {
+      say("E: unable to decode message: ", Dumper( $msg ) );
+    }
+
+    my $res = {
+      type => $msg->{type} //= 'unknown'
+    };
+
+    given( $msg->{type} )
+    {
+      when('auth_request')
+      {
+        $msg->{nonce} //= '';
+
+        if( $msg->{nonce} eq '' )
+        {
+          $res->{status} = 500;
+        }
+        else
+        {
+          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{secret} );
+          $res->{status} = 200;
+        }
+      }
+      when('auth_validate')
+      {
+        $CONF->{_session_key} = $msg->{session_key};
+        $CONF->{_session_uri} = $msg->{session_uri};
+        $res->{status} = 200;
+
+        say('Session key granted: ' . $CONF->{_session_key} . ' (' . $CONF->{_session_uri} . ')');
+
+        _process_start();
+      }
+      when('ping')
+      {
+        $res->{time} = time(),
+        $res->{stt} = $msg->{time} - $res->{time}
+      }
+      default {
+        say Dumper($msg);
+      }
+    }
+
+    $self->send( $json->encode( $res ) );
+  });
+
+  # Disconnected
+  $self->on(finish => sub {
+    my $self = shift;
+    $self->app->log->debug('WebSocket disconnected.');
+    _process_stop();
+  });
+
+  $self->on(error => sub {
+    my $self = shift;
+    say( Dumper( $@ ) );
+    $self->app->log->debug('ERROR');
+    #_process_stop();
+  });
+};
+
+#
+# ROUTES
+#
+
+
+
+
+#
+# INIT
+#
+
+
+$CONF->{_ua} = Mojo::UserAgent->new();
+
+
+app->config(hypnotoad => {listen => ['http://' . $CONF->{host} . '/' . $CONF->{port}]});
+
+app->secret('passivednsd');
+app->start();
+

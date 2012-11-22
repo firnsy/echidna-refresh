@@ -35,6 +35,11 @@ my $CONF = {
     key    => 'asdd',
   },
   agents => {
+    passivedns => {
+      type => 'passivedns',
+      host => 'localhost',
+      port => 6967,
+    },
     barnyard2 => {
       type => 'barnyard2',
       host => 'localhost',

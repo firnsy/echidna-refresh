@@ -22,3 +22,9 @@ PERL5LIB=./lib morbo --listen='http://localhost:6970' ./echidnad
 
 # start cxtrackerd
 PERL5LIB=./lib morbo --listen 'http://localhost:6969' ./cxtrackerd
+
+# start barnyard2d
+PERL5LIB=./lib morbo --listen 'http://localhost:6968' ./barnyard2d
+
+# start passivednsd
+PERL5LIB=./lib morbo --listen 'http://localhost:6967' ./passivednsd

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# This file is part of the NSM framework
+# This file is part of the Echidna framework
 #
 # Copyright (C) 2010-2012, Edward Fjellskål <edwardfjellskaal@gmail.com>
 #                          Eduardo Urias    <windkaiser@gmail.com>
@@ -32,8 +32,10 @@ use 5.010;
 #
 use Data::Dumper;
 use Digest::SHA qw(sha256_hex);
+use Fcntl qw(SEEK_SET);
 use File::Basename;
 use File::Copy;
+use List::Util qw(first);
 use Mojo::JSON;
 use Mojolicious::Lite;
 use Mojo::IOLoop;
@@ -50,8 +52,7 @@ use Mojo::UserAgent;
 my $CONF = {
   host => 'localhost',
   port => 6969,
-  secret => 'woot',
-  key    => 'abce',
+  key  => 'woot',
   cxtracker => {
     dir      => './logs/cxtracker',
     mode     => 'archive',
@@ -73,139 +74,210 @@ my $CONF = {
 
 =cut
 
-sub _get_sessions {
-  my ($sfile, $node_id) = @_;
+sub _get_session_records {
+  my ($spooler, $node_id) = @_;
 
   my $sessions_data = [];
 
-  say('D: Session file found: ' . $sfile);
+  if( -e $spooler->{file} ) {
+    say('D: Session file found: ' . $spooler->{file});
 
-  if( open(FILE, $sfile) )
-  {
-    my $cnt = 0;
-    # verify the data in the session files
-    while( my $line = readline FILE )
+    if( open(FILE, $spooler->{file}) )
     {
-      chomp $line;
-      $line =~ /^\d{19}/;
-      unless($line)
-      {
-        say('E: Invalid session start format in: ' . $sfile);
-        next;
+      # fast forward if offset is non-zero
+      if( $spooler->{file_offset} > 0 ) {
+        say 'D: Offsetting to ' . $spooler->{file_offset} . ' bytes.';
+        seek FILE, $spooler->{file_offset}, SEEK_SET;
       }
 
-      my @elements = split(/\|/, $line);
-
-      my $file_name_start = '';
-      my $file_offset_start = 0;
-
-      my $file_name_end = '';
-      my $file_offset_end = 0;
-
-      if( @elements == 16 )
+      # verify the data in the session files
+      while( my $line = readline FILE )
       {
-        say('D: No indexing available for session.');
-      }
-      elsif( @elements == 20 )
-      {
-        $file_name_start   = $elements[16];
-        $file_offset_start = $elements[17];
-        $file_name_end     = $elements[18];
-        $file_offset_end   = $elements[19];
-      }
-      else
-      {
-        say('E: Unknown cxtracker format detected. Found ' . scalar @elements . ' elements. Invoke cxtracker wiith "-f indexed" or "-f standard" for compliant output.');
-        next;
+        chomp $line;
+        $line =~ /^\d{19}/;
+        unless($line)
+        {
+          say('E: Invalid session start format in: ' . $spooler->{file});
+          next;
+        }
+
+        my @elements = split(/\|/, $line);
+
+        my $file_name_start = '';
+        my $file_offset_start = 0;
+
+        my $file_name_end = '';
+        my $file_offset_end = 0;
+
+        if( @elements == 16 )
+        {
+          say('D: No indexing available for session.');
+        }
+        elsif( @elements == 20 )
+        {
+          $file_name_start   = $elements[16];
+          $file_offset_start = $elements[17];
+          $file_name_end     = $elements[18];
+          $file_offset_end   = $elements[19];
+        }
+        else
+        {
+          say 'E: Unknown cxtracker format detected. Found ' . scalar @elements . ' elements. Invoke cxtracker wiith "-f indexed" or "-f standard" for compliant output.';
+          next;
+        }
+
+        # build the session structs
+        push( @{ $sessions_data }, {
+          id                    => sha256_hex(@elements[6..9,1,2]),
+          timestamp             => $elements[1],
+          time_start            => $elements[1],
+          time_end              => $elements[2],
+          time_duration         => $elements[3],
+          node_id               => $node_id,
+          ssn_corr_id           => sha256_hex(@elements[6..9,5]),
+          net_version           => $elements[4],
+          net_protocol          => $elements[5],
+          net_src_ip            => $elements[6],
+          net_src_port          => $elements[7],
+          net_src_total_packets => $elements[10],
+          net_src_total_bytes   => $elements[11],
+          net_src_flags         => $elements[14],
+          net_dst_ip            => $elements[8],
+          net_dst_port          => $elements[9],
+          net_dst_total_packets => $elements[12],
+          net_dst_total_bytes   => $elements[13],
+          net_dst_flags         => $elements[14],
+          file_name_start       => $file_name_start,
+          file_offset_start     => $file_offset_start,
+          file_name_end         => $file_name_end,
+          file_offset_end       => $file_offset_end,
+          meta_cxt_id           => $elements[0],
+        });
+
+        $spooler->{file_offset} = tell FILE;
       }
 
-      # build the session structs
-      push( @{ $sessions_data }, {
-        id                    => sha256_hex(@elements[6..9,1,2]),
-        timestamp             => $elements[1],
-        time_start            => $elements[1],
-        time_end              => $elements[2],
-        time_duration         => $elements[3],
-        node_id               => $node_id,
-        ssn_corr_id           => sha256_hex(@elements[6..9,5]),
-        net_version           => $elements[4],
-        net_protocol          => $elements[5],
-        net_src_ip            => $elements[6],
-        net_src_port          => $elements[7],
-        net_src_total_packets => $elements[10],
-        net_src_total_bytes   => $elements[11],
-        net_src_flags         => $elements[14],
-        net_dst_ip            => $elements[8],
-        net_dst_port          => $elements[9],
-        net_dst_total_packets => $elements[12],
-        net_dst_total_bytes   => $elements[13],
-        net_dst_flags         => $elements[14],
-        file_name_start       => $file_name_start,
-        file_offset_start     => $file_offset_start,
-        file_name_end         => $file_name_end,
-        file_offset_end       => $file_offset_end,
-        meta_cxt_id           => $elements[0],
-      });
+      close FILE;
     }
+  }
 
-    close FILE;
+  return $sessions_data;
+}
 
-    return $sessions_data;
+sub _cleanup {
+  my $file = $CONF->{_spooler}{file};
+
+  if( -e $file ) {
+    my $mode = $CONF->{cxtracker}{mode} //= 'delete';
+
+    if( $mode eq 'archive' ) {
+      my $destination = $CONF->{cxtracker}{archive} . '/' . basename( $file );
+      say 'D: Archiving ' . $file . ' -> ' . $destination;
+
+      if( -d $CONF->{cxtracker}{archive} ) {
+        if( ! move( $file, $destination ) ) {
+          say 'E: Unable to archive: ' . $file;
+        }
+      }
+      else {
+        say 'E: Archive directory does not exist!';
+      }
+    }
+    else {
+      say 'D: Deleting ' . $file;
+
+      if( ! unlink($file) ) {
+        say 'E: Failed to delete: ' . $file;
+      }
+    }
+  }
+  else {
+    say 'D: nothing to clean.';
   }
 }
 
-sub _cleanup_inserted {
-  my $file = shift;
+sub _get_next_file {
+  my ($spooler, $dir, $regex,) = @_;
 
-  my $mode = $CONF->{cxtracker}{mode} //= 'delete';
+  # return current file by default
+  my $current_file = basename $spooler->{file};
 
-  if( $mode eq 'archive' )
-  {
-    my $destination = $CONF->{cxtracker}{archive} . '/' . basename( $file );
-    say("D: Archiving " . $file . " -> " . $destination);
+  # check if our current file has grown first
 
-    if( -d $CONF->{cxtracker}{archive} )
-    {
 
-      if( ! move( $file, $destination ) )
-      {
-        say('E: Unable to archive: ' . $file);
+  if( opendir my $dh, $dir ) {
+    # collect all available files
+    my @files = grep { /$regex/ && -f -r -w "$dir/$_" } readdir($dh);
+    closedir($dh);
+
+    # do we have files
+    if( @files ) {
+      # check for last file in list
+      my $index = first { $files[$_] eq $current_file } 0..$#files;
+
+      if( defined($index) ) {
+        # no new files when index is last item
+        if( $index == $#files ) {
+          say 'D: No new files to process';
+        }
+        else {
+          # clean up due to file change
+          _cleanup();
+
+          $spooler->{file} = $dir . '/' . $files[$index + 1];
+          $spooler->{file_offset} = 0;
+        }
       }
+      # return first file in list if we didn't find our current
+      else {
+        # clean up due to file change
+        _cleanup();
+
+        $spooler->{file} = $dir . '/' . $files[0];
+        $spooler->{file_offset} = 0;
+      }
+
+      say 'D: Next file is ' . $spooler->{file} . ', offsetted at ' . $spooler->{file_offset} . ' bytes.';
     }
-    else
-    {
-      say('E: Archive directory does not exist!');
+    else {
+      say 'D: No files available.';
     }
   }
-  else
-  {
-    say('D: Deleting ' . $file);
-
-    if( ! unlink($file) )
-    {
-      say('E: Failed to delete: ' . $file);
-    }
+  else {
+    say 'D: Could not open ' . $dir;
   }
 }
 
+sub _flush_records {
+  if( @{ $CONF->{_spooler}{records} } ) {
+    # grab the record at the head of the list
+    my $record = $CONF->{_spooler}{records}->[0];
 
-sub _cleanup_check {
-  $CONF->{_files} //= {};
+    say 'D: Posting record to ' . $CONF->{_session_uri} . '/api/sessions (' . @{ $CONF->{_spooler}{records} } . ' in queue)';
+    $CONF->{_ua}->post_json($CONF->{_session_uri} . '/api/sessions?session=' . $CONF->{_session_key} => $record => sub {
+      my ($ua, $tx) = @_;
 
-  for my $f ( keys( %{ $CONF->{_files} } ) )
-  {
-    my $stats = $CONF->{_files}{$f};
+      my $tx_res_code = $tx->res->code // -1;
 
-    if( $stats->{count} == $stats->{insert} )
-    {
-      delete( $CONF->{_files}{$f} );
-      _cleanup_inserted($f);
-    }
-    elsif( $stats->{count} == $stats->{duplicate} )
-    {
-      delete( $CONF->{_files}{$f} );
-      _cleanup_inserted($f);
-    }
+      if( $tx_res_code == 200 ) {
+        # pop on success
+        splice @{ $CONF->{_spooler}{records} }, 0, 1;
+      }
+      elsif( $tx_res_code == 502 ) {
+        # pop on duplicate (it's already there)
+        splice @{ $CONF->{_spooler}{records} }, 0, 1;
+      }
+      else {
+        # indicate failure
+        say 'E: Unable to push record.';
+      }
+
+      _flush_records()
+    });
+  }
+  # otherwise continue processing
+  else {
+    _process();
   }
 }
 
@@ -213,90 +285,25 @@ sub _process {
   my $dir = $CONF->{cxtracker}{dir};
   my $regex = $CONF->{cxtracker}{regex};
 
-  say('D: Checking dir: ' . $dir);
+  say 'D: Checking dir: ' . $dir;
 
-  if( opendir my $dh, $dir )
-  {
-    while( my $file = readdir($dh) )
-    {
-      if( -f "$dir/$file" and $file =~ /$regex/)
-      {
-        $file = $dir . '/' . $file;
+  # attempt to get mroe session is none exist
+  if( ! @{ $CONF->{_spooler}{records} } ) {
+    _get_next_file($CONF->{_spooler}, $dir, $regex);
 
-        if( ! ( -r -w -f $file ) )
-        {
-          say('I: Insufficient permissions to operate on file: ' . $file);
-          return;
-        };
-
-        say('I: Found file: ' . $file);
-
-        my ($sessions, $start_time, $end_time, $process_time, $result);
-
-        $start_time   = time();
-        $sessions     = _get_sessions($file, $CONF->{_session_key});
-        $end_time     = time();
-        $process_time = $end_time - $start_time;
-        say('D: File ' . $file . ' processed in ' . $process_time . ' seconds');
-        $start_time   = time();
-
-        $CONF->{_files}{$file} = {
-          count     => scalar @{ $sessions },
-          insert    => 0,
-          duplicate => 0,
-          fail      => 0,
-        };
-
-        if( @{ $sessions } )
-        {
-          for my $session ( @{ $sessions } )
-          {
-            say("Posting to: " . $CONF->{_session_uri} . '/api/sessions');
-
-            $CONF->{_ua}->post_json($CONF->{_session_uri} . '/api/sessions' => $session => sub {
-              my ($ua, $tx) = @_;
-              #            say Dumper($tx);
-
-              if( $tx->res->code() == 200 )
-              {
-                $CONF->{_files}{$file}{insert}++;
-              }
-              elsif( $tx->res->code() == 502 )
-              {
-                $CONF->{_files}{$file}{duplicate}++;
-              }
-              else
-              {
-                $CONF->{_files}{$file}{fail}++;
-              }
-
-              _cleanup_check();
-            });
-          }
-
-          $end_time     = time();
-          $process_time = $end_time - $start_time;
-
-          say('D: Session record(s) sent in ' . $process_time . ' seconds');
-        }
-        else
-        {
-          _cleanup_check();
-        }
-      }
-    }
-    closedir($dh);
+    # add new sessions to cache
+    push @{ $CONF->{_spooler}{records} }, @{ _get_session_records($CONF->{_spooler}, $CONF->{_session_key} ) };
   }
-  else
-  {
-    say('D: Could not open ' . $dir);
+
+  # check if we have sessions to flush
+  if( @{ $CONF->{_spooler}{records} } ) {
+    _flush_records();
   }
 }
 
 sub _process_start {
-  if( defined($CONF->{_cxtracker}{process_timer}) )
-  {
-    say("D: already processing.");
+  if( defined($CONF->{_cxtracker}{process_timer}) ) {
+    say 'D: Already processing.';
     return;
   }
 
@@ -306,8 +313,6 @@ sub _process_start {
     _process();
   });
 
-  say Dumper($CONF);
-
   _process();
 }
 
@@ -315,11 +320,11 @@ sub _process_stop {
 
   if( ! defined($CONF->{_cxtracker}{process_timer}) )
   {
-    say("D: not processing.");
+    say 'D: Not processing.';
     return;
   }
 
-  say("Stopping...");
+  say 'D: Stopping processing ...';
   Mojo::IOLoop->remove( $CONF->{_cxtracker}{process_timer} );
   delete( $CONF->{_cxtracker}{process_timer} );
 }
@@ -368,7 +373,7 @@ websocket '/control' => sub {
         }
         else
         {
-          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{secret} );
+          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{key} );
           $res->{status} = 200;
         }
       }
@@ -423,6 +428,11 @@ websocket '/control' => sub {
 
 
 $CONF->{_ua} = Mojo::UserAgent->new();
+$CONF->{_spooler} = {
+  file        => '',
+  file_offset => -1,
+  records     => [],
+};
 
 
 app->config(hypnotoad => {listen => ['http://' . $CONF->{host} . '/' . $CONF->{port}]});

@@ -2,6 +2,7 @@ package Echidna::Web::Controller::Event;
 use Mojo::Base 'Mojolicious::Controller';
 
 use Data::Dumper;
+use Echidna::Model::Event;
 
 sub collection_get {
   my $self = shift;

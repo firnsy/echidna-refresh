@@ -12,9 +12,6 @@ __PACKAGE__->set_properties({
     id                    => ['sha256'],
     node_id               => ['sha256'],
 
-    # sha256(concat(net_src_ip,net_src_port,net_dst_ip,net_dst_port,net_protocol))
-    ssn_corr_id           => ['sha256'],
-
     timestamp             => ['timestamp'],
     client                => ['ip'],
     server                => ['ip'],

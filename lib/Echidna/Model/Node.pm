@@ -7,8 +7,6 @@ use base qw(Echidna::Model::Object);
 
 __PACKAGE__->set_properties({
     # required
-
-    # sha256(concat(type,host,port))
     id                => ['sha256'],
 
     type              => ['text'],

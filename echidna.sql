@@ -84,6 +84,7 @@ CREATE TABLE pdns (
   timestamp             DATETIME              NOT NULL,
   client                DECIMAL(39,0)         NOT NULL,
   server                DECIMAL(39,0)         NOT NULL,
+  rr_class              TEXT,
   query                 TEXT,
   query_answer          TEXT,
   query_type            TEXT,

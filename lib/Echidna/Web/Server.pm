@@ -25,6 +25,9 @@
 package Echidna::Web::Server;
 use Mojo::Base 'Mojolicious';
 
+#
+# PERL INCLUDES
+#
 use Data::Dumper;
 use DBD::mysql;
 use DBI;
@@ -33,73 +36,53 @@ use List::Util qw(first);
 use Mojo::IOLoop;
 use Mojo::JSON;
 use Mojo::UserAgent;
+use Scalar::Util qw(weaken);
 
+#
+# LOCAL INCLUDES
+#
 use Echidna::Database;
 
 #
 # CONFIGURATION
 #
 
-my $CONF = {
-  host => 'localhost',
-  port => 6970,
-#  key    => 'asdd',
-
-  secret => 'woot',
-  agent_status_poll => 10,
-  agents => {
-    passivedns => {
-      type => 'passivedns',
-      host => 'localhost',
-      port => 6967,
-      key  => 'woot',
-    },
-    barnyard2 => {
-      type => 'barnyard2',
-      host => 'localhost',
-      port => 6968,
-      key  => 'woot',
-    },
-    cxtracker => {
-      type => 'cxtracker',
-      host => 'localhost',
-      port => 6969,
-      key  => 'woot',
-    },
-  }
-};
-
-my $AGENTS = {};
-my $AGENTS_SC;
+my $NODES = {};
+my $NODES_SC;
 my $ACTIVE_SESSION_KEYS = [];
 
 #
 # INITIATE AGENT CHECKS
 #
 
-sub _agent_status_check {
-  foreach my $a ( keys %{ $AGENTS } )
+sub _node_status_check {
+  my $self = shift;
+  my $conf = $self->config;
+
+  foreach my $n ( keys %{ $NODES } )
   {
+    my $node = $NODES->{$n};
+
     # TODO: slightly hacky tapping the UA's internal connections
     # property to see if the websocket connection is still active
-    if( ( ref($AGENTS->{$a}{_ua}) eq 'Mojo::UserAgent' ) &&
-        ( keys %{ $AGENTS->{$a}{_ua}{connections} } ) )
+    if( ( ref($node->{_ua}) eq 'Mojo::UserAgent' ) &&
+        ( keys %{ $node->{_ua}{connections} } ) )
     {
       next;
     }
 
-    my $ws_control = 'ws://' . $AGENTS->{$a}{host} . ':' . $AGENTS->{$a}{port} . '/control';
+    my $ws_control = 'ws://' . $node->{host} . ':' . $node->{port} . '/control';
 
-    say("D: checking agent: $a ($ws_control)");
+    say 'D: checking ' . $node->{type} . ' node: ' . $n . ' (' . $ws_control . ')';
 
-    $AGENTS->{$a}{_ua}->on(error => sub {
+    $node->{_ua}->on(error => sub {
       my ($ua, $err) = @_;
       say "This looks bad: $err";
     });
 
-    $AGENTS->{$a}{_nonce} = sha256_hex( time() );
+    $node->{_nonce} = sha256_hex( time() );
 
-    $AGENTS->{$a}{_ua}->websocket($ws_control => sub {
+    $node->{_ua}->websocket($ws_control => sub {
       my ($ua, $tx) = @_;
 
       $tx->on(connection => sub {
@@ -123,24 +106,25 @@ sub _agent_status_check {
           {
             when('auth_request')
             {
-              if( $msg->{hmac} eq sha256_hex( $AGENTS->{$a}{_nonce} . $AGENTS->{$a}{key} ) )
+              if( $msg->{hmac} eq sha256_hex( $node->{_nonce} . $node->{key} ) )
               {
                 # generate session key tracked by agent
-                $AGENTS->{$a}{session_key} = sha256_hex( time() );
+                $node->{session_key} = sha256_hex( time() );
 
                 # also add to valid session key array
-                push @{ $ACTIVE_SESSION_KEYS }, $AGENTS->{$a}{session_key};
+                push @{ $ACTIVE_SESSION_KEYS }, $node->{session_key};
 
                 $res->{type} = 'auth_validate',
-                $res->{session_key} = $AGENTS->{$a}{session_key};
-                $res->{session_uri} = $CONF->{host} . ':' . $CONF->{port};
+                $res->{session_key} = $node->{session_key};
+                $res->{session_uri} = $conf->{host} . ':' . $conf->{port};
+                $res->{node_id} = $n;
 
-                say 'I: AUTH granted to ' . $a;
+                say 'I: AUTH granted to ' . $n;
                 $tx->send( $json->encode( $res ) );
               }
               else
               {
-                say 'E: AUTH denied to ' . $a;
+                say 'E: AUTH denied to ' . $n;
                 $tx->finish();
               }
             }
@@ -149,7 +133,7 @@ sub _agent_status_check {
               if( $msg->{status} eq '200' )
               {
                 # establish the heartbeat
-                $AGENTS->{$a}{_ping} = Mojo::IOLoop->recurring( 5 => sub {
+                $node->{_ping} = Mojo::IOLoop->recurring( 5 => sub {
                   my $json = Mojo::JSON->new();
 
                   say 'D: ping';
@@ -180,13 +164,13 @@ sub _agent_status_check {
         say 'WebSocket closed.';
 
         # clean up heartbeat as appropriate
-        if( defined($AGENTS->{$a}{_ping}) )
+        if( defined($node->{_ping}) )
         {
-          my $_timer_id = delete( $AGENTS->{$a}{_ping} );
+          my $_timer_id = delete( $node->{_ping} );
           Mojo::IOLoop->remove( $_timer_id );
 
           # clean up the session key
-          my $session_key = delete $AGENTS->{$a}{session_key};
+          my $session_key = delete $node->{session_key};
           my $index = first { $ACTIVE_SESSION_KEYS->[$_] eq $session_key } 0..$#$ACTIVE_SESSION_KEYS;
           if( defined($index) ) {
             splice @{ $ACTIVE_SESSION_KEYS }, $index, 1;
@@ -200,23 +184,29 @@ sub _agent_status_check {
 
         $tx->send($json->encode({
           type  => 'auth_request',
-          nonce => $AGENTS->{$a}{_nonce}
+          nonce => $node->{_nonce}
         }));
       }
     });
   }
 }
 
-sub _agent_setup {
-  foreach my $a ( keys %{ $CONF->{agents} } )
+sub _node_setup {
+  my $self = shift;
+  my $conf = $self->config;
+
+  foreach my $a ( keys %{ $conf->{nodes} } )
   {
-    $AGENTS->{$a} = $CONF->{agents}{$a};
-    $AGENTS->{$a}{_ua} = Mojo::UserAgent->new();
+    $NODES->{$a} = $conf->{nodes}{$a};
+    $NODES->{$a}{_ua} = Mojo::UserAgent->new();
   }
 
-  say("Starting agent checks ... ");
+  say 'Starting agent checks (refresh every ' . $conf->{node_status_poll} . ' seconds)... ';
 
-  $AGENTS_SC = Mojo::IOLoop->recurring( $CONF->{agent_status_poll} => sub { _agent_status_check() } );
+  $self->_node_status_check();
+
+  weaken( $self );
+  $NODES_SC = Mojo::IOLoop->recurring( $conf->{node_status_poll} => sub { $self->_node_status_check() } );
 }
 
 #
@@ -229,19 +219,25 @@ sub _agent_setup {
 # INIT
 #
 
-sub startup {
+sub config {
+  my ($self, $conf) = @_;
+
+  if( ref( $conf ) eq 'Echidna::Config' ) {
+    $self->{_config} = $conf->{config};
+  }
+
+  return $self->{_config};
+}
+
+sub startup_post {
   my $self = shift;
+
+  my $conf = $self->config;
 
   $self->helper(db => sub {
     Echidna::Database->new(
-      dbi => {
-          type      => 'mysql',
-          user      => 'echidna',
-          name      => 'echidna',
-          pass      => 'ech1dna',
-          pool_size => 10,
-          debug     => 0,
-      });
+      dbi => $conf->{database}
+    );
   });
 
   $self->secret('Echidna Echidna Secret Key');
@@ -282,7 +278,7 @@ sub startup {
         return 1;
       }
 
-      # say Dumper($session_key, $ACTIVE_SESSION_KEYS);
+      #say Dumper($session_key, $ACTIVE_SESSION_KEYS);
 
       $self->render(
         status => 403,
@@ -338,7 +334,7 @@ sub startup {
   $route->put('/:id', { id => qr/\d+/ })->to('pdns#id_update');
   $route->delete('/:id', { id => qr/\d+/ })->to('pdns#id_delete');
 
-  _agent_setup();
+  $self->_node_setup();
 }
 
 1;

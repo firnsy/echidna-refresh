@@ -11,11 +11,39 @@ use 5.010;
 #
 # PERL INCLUDES
 #
+use Data::Dumper;
+use Mojo::Server;
+use Mojo::Server::Daemon;
 use Mojolicious::Commands;
 
+#
+# LOCAL INCLUDES
+#
+use Echidna::Config;
 
+# load configuration
+#
+my $conf = Echidna::Config->new({
+  host => 'localhost',
+  port => 6070,
+  node_status_poll => 10,
 
-$ENV{MOJO_APP} = 'Echidna::Web::Server';
+  database => {
+    type      => 'mysql',
+    user      => 'echidna',
+    name      => 'echidna',
+    pass      => 'ech1dna',
+    pool_size => 10,
+    debug     => 0,
+  },
+});
 
+$conf->parse_command_line( @ARGV );
 
-Mojolicious::Commands->start();
+my $daemon = Mojo::Server::Daemon->new;
+
+my $app = $daemon->build_app('Echidna::Web::Server');
+$app->config($conf);
+$app->startup_post();
+$app->start('daemon', '--listen', $conf->listen);
+

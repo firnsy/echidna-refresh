@@ -1,0 +1,63 @@
+#
+# NETWORK
+#
+# Specify the network settings for the server
+#
+host: 127.0.0.1
+port: 6970
+
+
+#
+# NODES
+#
+# Specify the down stream nodes ( collectors ) to initiate connections with
+#
+
+nodes:
+  834a12ea90939d6c52127b98ee58ce3d877945d10c44f47a24d61240d2932c1a:
+    type: "cxtracker"
+    host: 127.0.0.1
+    port: 6969
+    key: "woot"
+  3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b:
+    type: "barnyard2"
+    host: 127.0.0.1
+    port: 6968
+    key: "woot"
+  4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023:
+    type: "passivedns"
+    host: 127.0.0.1
+    port: 6967
+    key: "woot"
+
+#
+# LOG
+#
+# Specify the logging characteristics.
+#
+log:
+    default:
+        level: debug
+        timestamp: 1
+        logfile: stdout
+        warn_is_fatal: 1
+
+
+#
+# DATABASE
+#
+# Specify the backend source for all NSMF data storage.
+#
+# Available:
+#   - mysql - Requires name, user and pass.
+#
+database:
+    type: mysql
+    name: echidna
+    user: echidna
+    pass: ech1dna
+    host: localhost
+    port: 3306
+    pool: 10
+    #debug: 1
+

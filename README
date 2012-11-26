@@ -17,11 +17,15 @@ Dependencies:
 
 # move to the root of the source
 
+# add the nodes you wish to monitor to echidna.yml
+# 3 default nodes with UUID's are pre-defined for testing.
+
 # start echidnad
-PERL5LIB=./lib morbo --listen='http://localhost:6970' ./echidnad
+PERL5LIB=./lib ./echidnad --config=./etc/echidna.yml
+
 
 # start cxtrackerd
-PERL5LIB=./lib morbo --listen 'http://localhost:6969' ./cxtrackerd
+PERL5LIB=./lib ./cxtrackerd --config ./etc/cxtrackerd.yml
 
 # start barnyard2d
 PERL5LIB=./lib morbo --listen 'http://localhost:6968' ./barnyard2d

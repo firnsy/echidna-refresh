@@ -1,0 +1,18 @@
+#
+# NETWORK
+#
+# Specify the network settings for the server
+#
+host: localhost
+port: 6969
+key: 'woot'
+#
+# CXTRACKER Configuration
+#
+
+cxtracker:
+  dir:      './logs/cxtracker'
+  mode:     'archive'
+  archive:  './logs/cxtracker/archive'
+  regex:    'stats.*'
+  poll:     10

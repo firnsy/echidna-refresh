@@ -20,15 +20,20 @@ Dependencies:
 # add the nodes you wish to monitor to echidna.yml
 # 3 default nodes with UUID's are pre-defined for testing.
 
+
+# START SERVER (NODE - CONNECTOR)
+
 # start echidnad
 PERL5LIB=./lib ./echidnad --config=./etc/echidna.yml
 
 
+# START AGENTS (NODE - COLLECTOR)
+
 # start cxtrackerd
-PERL5LIB=./lib ./cxtrackerd --config ./etc/cxtrackerd.yml
+PERL5LIB=./lib ./cxtrackerd --config=./etc/cxtrackerd.yml
 
 # start barnyard2d
-PERL5LIB=./lib morbo --listen 'http://localhost:6968' ./barnyard2d
+PERL5LIB=./lib ./barnyard2d --config=./etc/barnyard2d.yml
 
 # start passivednsd
-PERL5LIB=./lib morbo --listen 'http://localhost:6967' ./passivednsd
+PERL5LIB=./lib ./passivednsd --config=./etc/passivednsd.yml

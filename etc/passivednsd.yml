@@ -1,0 +1,18 @@
+#
+# NETWORK
+#
+# Specify the network settings for the server
+#
+host: localhost
+port: 6967
+key: 'woot'
+#
+# PASSIVEDNS Configuration
+#
+
+passivedns:
+  dir:      './logs/passivedns'
+  mode:     'archive'
+  archive:  './logs/passivedns/archive'
+  regex:    'passivedns.*'
+  poll:     10

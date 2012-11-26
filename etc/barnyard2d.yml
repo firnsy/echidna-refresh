@@ -1,0 +1,14 @@
+#
+# NETWORK
+#
+# Specify the network settings for the server
+#
+host: localhost
+port: 6968
+key: 'woot'
+#
+# CXTRACKER Configuration
+#
+
+barnyard2:
+  key:  'password'

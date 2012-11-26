@@ -31,155 +31,34 @@ use 5.010;
 # PERL INCLUDES
 #
 use Data::Dumper;
-use Digest::SHA qw(sha256_hex);
-use Mojo::JSON;
-use Mojolicious::Lite;
-use Mojo::IOLoop;
-use Mojo::UserAgent;
+use Mojo::Server;
+use Mojo::Server::Daemon;
+use Mojolicious::Commands;
 
 #
-# GLOBALS
+# LOCAL INCLUDES
 #
+use Echidna::Config;
 
+# load configuration
 #
-# CONFIGURATION
-#
+my $conf = Echidna::Config->new({
+  host => 'localhost',
+  port => 6969,
+  key  => 'secret',
 
-my $CONF = {
-  host    => 'localhost',
-  port    => 6968,
-  secret  => 'woot',
-  type    => 'barnyard2',
-  conf    => {
-    host    => 'localhost',
-    port    => 6968,
-    key     => 'password',
+  barnyard2 => {
+    key   => 'secret',
   },
-};
+});
 
+$conf->parse_command_line( @ARGV );
 
-#
-# HELPERS
-#
+my $daemon = Mojo::Server::Daemon->new;
 
+my $app = $daemon->build_app('Echidna::Node::Barnyard2');
+$app->config($conf);
+$app->startup_post();
+$app->start('daemon', '--listen', $conf->listen);
 
-#
-# WEBSOCKET
-#
-
-websocket '/control' => sub {
-  my $self = shift;
-
-  # connected
-  $self->app->log->debug('WebSocket connected.');
-
-  # Increase inactivity timeout for connection a bit
-  Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
-
-  # Incoming message
-  $self->on(message => sub {
-    my ($self, $msg) = @_;
-
-    say Dumper($msg);
-
-    my $json = Mojo::JSON->new();
-
-    eval {
-      $msg = $json->decode($msg);
-    };
-
-    if( $@ ) {
-      say("E: unable to decode message: ", Dumper( $msg ) );
-    }
-
-    my $res = {
-      type => $msg->{type} //= 'unknown'
-    };
-
-    given( $msg->{type} )
-    {
-      #
-      # UPSTREAM MESSAGES
-      when('auth_request')
-      {
-        $msg->{nonce} //= '';
-
-        if( $msg->{nonce} eq '' )
-        {
-          $res->{status} = 500;
-        }
-        else
-        {
-          $res->{hmac} = sha256_hex( $msg->{nonce} . $CONF->{secret} );
-          $res->{status} = 200;
-        }
-      }
-      when('auth_validate')
-      {
-        $CONF->{_session_key} = $msg->{session_key};
-        $CONF->{_session_uri} = 'http://' . $msg->{session_uri} . '/api/events';
-        $res->{status} = 200;
-
-        say('Session key granted: ' . $CONF->{_session_key} . ' (' . $CONF->{_session_uri} . ')');
-      }
-      when('ping')
-      {
-        $res->{time} = time(),
-        $res->{stt} = $msg->{time} - $res->{time}
-      }
-
-      #
-      # BARNYARD2 MESSAGES
-      when('by2_auth_request')
-      {
-        $msg->{key} //= '';
-        if( ( $msg->{key} eq $CONF->{barnyard2}{key} ) &&
-            defined($CONF->{_session_key}) )
-        {
-          $res->{session_key} = $CONF->{_session_key} // '';
-          $res->{session_uri} = $CONF->{_session_uri} // '';
-          $res->{node_id} = '3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b';
-        }
-      }
-
-      #
-      # CATCH ALL
-      default {
-        say "Unknown message ...";
-      }
-    }
-
-    $self->send( $json->encode( $res ) );
-  });
-
-  # Disconnected
-  $self->on(finish => sub {
-    my $self = shift;
-    $self->app->log->debug('WebSocket disconnected.');
-  });
-
-  $self->on(error => sub {
-    my $self = shift;
-    say( Dumper( $@ ) ); 
-    $self->app->log->debug('ERROR');
-  });
-};
-
-#
-# ROUTES
-#
-
-
-
-
-#
-# INIT
-#
-
-$CONF->{_ua} = Mojo::UserAgent->new();
-
-app->config(hypnotoad => {listen => ['http://' . $CONF->{host} . '/' . $CONF->{port}]});
-
-app->secret('cxtrackerd');
-app->start();
 

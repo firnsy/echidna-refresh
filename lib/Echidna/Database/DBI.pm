@@ -253,11 +253,9 @@ sub search {
     my ($self, $model_type, $criteria, $cb) = @_;
 
     my $model = $self->_load_model($model_type);
-
     $self->_validate_criteria($model, $criteria);
 
     my $sql = $self->_mk_query_select($model, $criteria);
-
     $self->_execute_query($sql, $model, $cb);
 }
 
@@ -392,7 +390,6 @@ sub _autoload_models {
 sub _autoload_types {
     my ($self) = @_;
 
-    say Dumper __PACKAGE__->entities;
     for my $package (__PACKAGE__->entities) {
         $self->_require($package) 
             or croak "Failed to require $package";
@@ -489,6 +486,49 @@ sub _mk_query_insert {
     return "INSERT INTO " .lc $table. "(".join(", ", @fields). ") VALUES(" .join(", ", @values). ")";
 }
 
+sub _mk_batch_insert {
+    my ($self, $collection) = @_;
+
+    my $model = undef;
+    my $table = undef;
+
+    my @fields = ();
+    my $values = [];
+
+    my $sql = '';
+    my $query = "INSERT INTO %s (%s) VALUES";
+    if (ref $collection eq 'ARRAY') {
+
+        for my $object (@$collection) {
+  
+            $model = ref $object unless defined $model;
+            $table = lc $1 if ! defined $table and $model =~ /::(\w+)$/;
+            
+            unless (scalar @fields > 0) {
+                @fields = sort keys %{ $object->properties };
+            }
+
+            my @val = map { $object->get($_) } @fields; 
+            push @$values, \@val;
+        }
+    }
+
+    if (scalar @fields > 0) {
+        $sql = sprintf($query, lc $table, join(",", @fields) );
+
+        my $c = 0;
+        for my $value (@$values) {
+            $sql .= '(' .join(",", map { "'" .$_. "'"}@$value). ')';
+
+            $c += 1;
+            $sql .= ',' unless $c == scalar @$values;
+        }
+    }
+
+    $sql;
+  
+}
+
 sub _mk_query_update {
     my ($self, $model, $criteria, $data) = @_;
 
@@ -571,6 +611,28 @@ sub insert {
     }
 
     my $sql = $self->_mk_query_insert($data);
+    $self->_execute_query($sql, undef, $cb);
+}
+
+sub batch_insert {
+    my ($self, $model_type, $collection, $cb) = @_;
+
+    my $model = $self->_load_model($model_type);
+
+    for my $data (@$collection) {
+        eval {
+            $self->_validate_object($model, $data);
+        };
+
+        if ($@) {
+          #throw $@->message;
+            carp "Failed Session on Batch insert";
+            next;
+        }
+    
+    }
+
+    my $sql = $self->_mk_batch_insert($collection);
     $self->_execute_query($sql, undef, $cb);
 }
 

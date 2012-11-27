@@ -43,4 +43,11 @@ $db->search(session => { net_dst_port => '22' }, sub {
 
 $cv->recv;
 
+my $cv2 = AE::cv;
+$db->map_objects(1);
+$db->batch_insert([
+    
+  
+  ]);
+
 $db->close();

@@ -128,7 +128,7 @@ sub startup_post {
         when('auth_validate')
         {
           $app->{_echidna}{session_key} = $msg->{session_key};
-          $app->{_echidna}{session_uri} = $msg->{session_uri};
+          $app->{_echidna}{session_uri} = $msg->{session_uri} . '/api/events';
           $app->{_echidna}{node_id}     = $msg->{node_id};
 
           $res->{status} = 200;

@@ -15,8 +15,8 @@ sub create_definition {
         node_id               VARCHAR(64)           NOT NULL,
 
         timestamp             DATETIME              NOT NULL,
-        client                DECIMAL(39,0)         NOT NULL,
-        server                DECIMAL(39,0)         NOT NULL,
+        client                VARCHAR(39)           NOT NULL,
+        server                VARCHAR(39)           NOT NULL,
         rr_class              TEXT,
         query                 TEXT,
         query_answer          TEXT,

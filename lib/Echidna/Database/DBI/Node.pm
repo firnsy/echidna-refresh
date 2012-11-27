@@ -13,7 +13,7 @@ sub create_definition {
       CREATE TABLE IF NOT EXISTS node (
         id                    VARCHAR(64)           NOT NULL,
         type                  TEXT                  NOT NULL,
-        host                  DECIMAL(39,0)         NOT NULL,
+        host                  VARCHAR(39)           NOT NULL,
         port                  SMALLINT(5)           NOT NULL,
         skey                  TEXT                  NOT NULL,
         name                  TEXT                  NOT NULL,

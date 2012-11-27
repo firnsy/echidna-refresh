@@ -25,7 +25,7 @@ use Echidna::Config;
 #
 my $conf = Echidna::Config->new({
   host => 'localhost',
-  port => 6070,
+  port => 6970,
   node_status_poll => 10,
 
   database => {

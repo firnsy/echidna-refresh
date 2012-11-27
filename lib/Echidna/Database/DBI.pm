@@ -4,6 +4,10 @@ use strict;
 use 5.010;
 
 use base qw(Echidna::Database::Base);
+use Module::Pluggable
+    search_path => 'Echidna::Database::DBI',
+    sub_name => 'entities',
+    except => qr/Object$/;
 
 use AnyEvent;
 use AnyEvent::DBI;
@@ -14,10 +18,6 @@ use Data::Dumper;
 use Echidna::Model;
 use Echidna::Common::Util;
 use Echidna::Common::Error;
-
-use constant {
-    ModelNotFound => 'Failed to load module',
-};
 
 my $instance;
 sub new {
@@ -68,7 +68,7 @@ sub _setup {
     $instance->{__dsn} = join(":", "dbi", $args->{type}, $args->{name});
 
     # perform a credentials check before we build the pool
-    if( ! DBI->connect( $instance->{__dsn}, $instance->{__user}, $instance->{__password} ) ) {
+    if ( ! DBI->connect( $instance->{__dsn}, $instance->{__user}, $instance->{__password} ) ) {
         croak "Error - Unable to connect with those credentials";
     }
 
@@ -106,6 +106,7 @@ sub _setup {
     $instance->{__running}->{$_} = 0 for @pids;
 
     $instance->_autoload_models();
+    $instance->_autoload_types();
 }
 
 sub close {
@@ -388,10 +389,36 @@ sub _autoload_models {
 
 }
 
+sub _autoload_types {
+    my ($self) = @_;
+
+    say Dumper __PACKAGE__->entities;
+    for my $package (__PACKAGE__->entities) {
+        $self->_require($package) 
+            or croak "Failed to require $package";
+
+        $package->create_definition($self);
+    }
+}
+
+sub _require {
+    my ($self, $lib) = @_;
+    return unless $lib;
+
+    eval qq{require $lib}; if ($@) {
+        throw "Could not require $lib";
+    }
+
+    $lib;
+}
+
 sub _require_model {
     my ($self, $model_path) = @_;
 
-    eval qq{require $model_path}; if ($@) {
+    eval {
+        $self->_require($model_path);
+
+    }; if ($@) {
         throw 'ModelNotFound', $@;
     }
 

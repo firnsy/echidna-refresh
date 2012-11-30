@@ -74,38 +74,33 @@ sub collection_add {
   my $json = Mojo::JSON->new();
 
   my $data = {};
-  my $model;
+  my $models = [];
 
-  eval {
-    $data = $json->decode( $self->req()->body() );
-    $model = Echidna::Model::Pdns->new( $data );
+  $data = $json->decode( $self->req()->body() );
+  $data = [ $data ] unless ( ref($data) eq 'ARRAY' );
 
-    $db->insert( pdns => $model, sub {
-      my( $rv, $error ) = @_;
-
-      if( defined($error) )
-      {
-        $self->render(
-          status => 502,
-          json => { status => 'Error.' }
-        );
-      }
-      else
-      {
-        $self->render(
-          status => 200,
-          json => { status => 'Success.' }
-        );
-      }
-    });
-  };
-  if( $@ )
-  {
-    $self->render(
-      status => 500,
-      json => { status => 'Error inserting data.' }
-    );
+  foreach my $m ( @{ $data } ) {
+    push( $models, Echidna::Model::Pdns->new( $m ) );
   }
+
+  $db->batch_insert( pdns => $models, sub {
+    my( $rv, $error ) = @_;
+
+    if( defined($error) )
+    {
+      $self->render(
+        status => 502,
+        json => { status => 'Error.' }
+      );
+    }
+    else
+    {
+      $self->render(
+        status => 200,
+        json => { status => 'Success.' }
+      );
+    }
+  });
 
   # we'll render via callbacks
   $self->render_later();

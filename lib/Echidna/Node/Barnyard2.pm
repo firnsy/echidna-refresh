@@ -90,6 +90,7 @@ sub startup_post {
     Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
     weaken($app);
+    weaken($self);
 
     # Incoming message
     $self->on(message => sub {
@@ -156,6 +157,14 @@ sub startup_post {
             $res->{session_uri} = $app->{_echidna}{session_uri} // '';
             $res->{node_id}     = $app->{_echidna}{node_id};
           }
+
+          if( ! defined($self->{_barnyard2_ping}) ) {
+            $self->{_barnyard2_ping} = Mojo::IOLoop->recurring(30 => sub {
+                my $json = Mojo::JSON->new;
+                say 'D: sending barnyard2 heartbeat ...';
+                $self->send( $json->encode({ ping => time() }) );
+            });
+          }
         }
 
         #
@@ -171,13 +180,20 @@ sub startup_post {
     # Disconnected
     $self->on(finish => sub {
       my $self = shift;
-      $self->app->log->debug('D: connection closed.');
+      if( defined($self->{_barnyard2_ping}) ) {
+        my $id = delete( $self->{_barnyard2_ping} );
+        Mojo::IOLoop->remove( $id );
+      }
+      say 'D: connection closed.';
     });
 
     $self->on(error => sub {
       my $self = shift;
-      say( Dumper( $@ ) );
-      $self->app->log->debug('ERROR');
+      if( defined($self->{_barnyard2_ping}) ) {
+        my $id = delete( $self->{_barnyard2_ping} );
+        Mojo::IOLoop->remove( $id );
+      }
+      say 'E: ', Dumper( $@ );
     });
   });
 }

@@ -47,7 +47,7 @@ use Echidna::Config;
 #
 # GLOBALS
 #
-
+use constant BATCH_RECORD_MAX => 1000;
 
 #
 # HELPERS
@@ -244,7 +244,12 @@ sub _flush_records {
 
   if( @{ $self->{_echidna}{spooler}{records} } ) {
     # grab the record at the head of the list
-    my $record = $self->{_echidna}{spooler}{records}->[0];
+    my $record_total = scalar @{ $self->{_echidna}{spooler}{records} };
+    my $records_submitted = $record_total >= BATCH_RECORD_MAX ? BATCH_RECORD_MAX : $record_total;
+
+    $self->{_echidna}{spooler}{records_submitted} = $records_submitted;
+
+    my $record = [ @{ $self->{_echidna}{spooler}{records} }[0..$records_submitted-1] ];
 
     say 'D: Posting record to ' . $self->{_echidna}{session_uri} . '/api/sessions (' . @{ $self->{_echidna}{spooler}{records} } . ' in queue)';
     $self->{_echidna}{ua}->post_json($self->{_echidna}{session_uri} . '/api/sessions?session=' . $self->{_echidna}{session_key} => $record => sub {
@@ -254,15 +259,17 @@ sub _flush_records {
 
       if( $tx_res_code == 200 ) {
         # pop on success
-        splice @{ $self->{_echidna}{spooler}{records} }, 0, 1;
+        splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
+        $self->{_echidna}{spooler}{records_submitted} = 0;
       }
       elsif( $tx_res_code == 502 ) {
         # pop on duplicate (it's already there)
-        splice @{ $self->{_echidna}{spooler}{records} }, 0, 1;
+        splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
+        $self->{_echidna}{spooler}{records_submitted} = 0;
       }
       else {
         # indicate failure
-        say 'E: Unable to push record.';
+        say 'E: Unable to push record. (' . $tx_res_code . ')';
       }
 
       $self->_flush_records()
@@ -283,7 +290,7 @@ sub _process {
 
   say 'D: Checking dir: ' . $dir;
 
-  # attempt to get mroe session is none exist
+  # attempt to get more session if none exist
   if( ! @{ $self->{_echidna}{spooler}{records} } ) {
     $self->_get_next_file($self->{_echidna}{spooler}, $dir, $regex);
 
@@ -292,7 +299,8 @@ sub _process {
   }
 
   # check if we have sessions to flush
-  if( @{ $self->{_echidna}{spooler}{records} } ) {
+  if( @{ $self->{_echidna}{spooler}{records} } &&
+      $self->{_echidna}{spooler}{records_submitted} == 0 ) {
     $self->_flush_records();
   }
 }
@@ -307,6 +315,8 @@ sub _process_start {
   }
 
   # TODO: fanotify based watcher
+  say 'D; starting processing ...';
+
   # establish the poll process
   $self->{_echidna}{process_timer} = Mojo::IOLoop->recurring($conf->{cxtracker}{poll}, sub {
     $self->_process();
@@ -355,9 +365,10 @@ sub startup_post {
   $self->{_echidna} = {
     ua      => Mojo::UserAgent->new(),
     spooler => {
-      file        => '',
-      file_offset => -1,
-      records     => [],
+      file              => '',
+      file_offset       => -1,
+      records           => [],
+      records_submitted => 0,
     }
   };
 

@@ -82,6 +82,8 @@ sub collection_add {
 
       if( defined($error) )
       {
+        say 'E: ' . $error;
+
         $self->render(
           status => 502,
           json => { status => 'Error.' }

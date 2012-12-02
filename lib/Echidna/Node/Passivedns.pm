@@ -49,7 +49,6 @@ use Echidna::Config;
 #
 use constant BATCH_RECORD_MAX => 1000;
 
-
 #
 # HELPERS
 #
@@ -333,9 +332,10 @@ sub startup_post {
   $self->{_echidna} = {
     ua      => Mojo::UserAgent->new(),
     spooler => {
-      file        => '',
-      file_offset => -1,
-      records     => [],
+      file              => '',
+      file_offset       => -1,
+      records           => [],
+      records_submitted => 0,
     }
   };
 

@@ -315,8 +315,6 @@ sub _process_start {
   }
 
   # TODO: fanotify based watcher
-  say 'D; starting processing ...';
-
   # establish the poll process
   $self->{_echidna}{process_timer} = Mojo::IOLoop->recurring($conf->{cxtracker}{poll}, sub {
     $self->_process();
@@ -466,19 +464,6 @@ sub startup_post {
     });
   });
 }
-
-#
-# ROUTES
-#
-
-
-my $conf = Echidna::Config->new({
-  host => 'localhost',
-  port => 6969,
-  key  => 'secret',
-});
-
-$conf->parse_command_line(@ARGV);
 
 1;
 

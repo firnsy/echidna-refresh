@@ -89,18 +89,20 @@ sub _get_session_records {
 
         my @elements = split(/\|/, $line);
 
+        my $net_version = 0;
         my $file_name_start = '';
         my $file_offset_start = 0;
 
         my $file_name_end = '';
         my $file_offset_end = 0;
 
-        if( @elements == 16 )
+        if( @elements == 15 )
         {
           say('D: No indexing available for session.');
         }
         elsif( @elements == 20 )
         {
+          $net_version       = $elements[15];
           $file_name_start   = $elements[16];
           $file_offset_start = $elements[17];
           $file_name_end     = $elements[18];
@@ -114,25 +116,25 @@ sub _get_session_records {
 
         # build the session structs
         push( @{ $sessions_data }, {
-          id                    => sha256_hex(@elements[6..9,1,2]),
+          id                    => sha256_hex(@elements[5..8,1,2]),
           timestamp             => $elements[1],
           time_start            => $elements[1],
           time_end              => $elements[2],
           time_duration         => $elements[3],
           node_id               => $node_id,
-          ssn_corr_id           => sha256_hex(@elements[6..9,5]),
-          net_version           => $elements[4],
-          net_protocol          => $elements[5],
-          net_src_ip            => $elements[6],
-          net_src_port          => $elements[7],
-          net_src_total_packets => $elements[10],
-          net_src_total_bytes   => $elements[11],
-          net_src_flags         => $elements[14],
-          net_dst_ip            => $elements[8],
-          net_dst_port          => $elements[9],
-          net_dst_total_packets => $elements[12],
+          ssn_corr_id           => sha256_hex(@elements[5..8,4]),
+          net_protocol          => $elements[4],
+          net_src_ip            => $elements[5],
+          net_src_port          => $elements[6],
+          net_src_total_packets => $elements[9],
+          net_src_total_bytes   => $elements[10],
+          net_src_flags         => $elements[12],
+          net_dst_ip            => $elements[7],
+          net_dst_port          => $elements[8],
+          net_dst_total_packets => $elements[11],
           net_dst_total_bytes   => $elements[13],
           net_dst_flags         => $elements[14],
+          net_version           => $net_version,
           file_name_start       => $file_name_start,
           file_offset_start     => $file_offset_start,
           file_name_end         => $file_name_end,
@@ -196,7 +198,7 @@ sub _get_next_file {
 
   if( opendir my $dh, $dir ) {
     # collect all available files
-    my @files = grep { /$regex/ && -f -r -w "$dir/$_" } readdir($dh);
+    my @files = grep { /$regex/ && -f "$dir/$_" } readdir($dh);
     closedir($dh);
 
     # do we have files

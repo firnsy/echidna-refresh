@@ -83,23 +83,23 @@ sub validate_type {
             #    unless $value ~~ /\A\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\Z/;
         }
         when(/sha256/) {
-            throw 'ValidationError', "SHA256 type expected on '$key' accessor"
+            throw 'ValidationError', "SHA256 type expected on '$key' accessor. Got $value."
                 unless $value ~~ /\A[A-Fa-f0-9]{64}\Z/;
         }
         when(/int/) {
-            throw 'ValidationError', "Integer type expected on '$key' accessor"
+            throw 'ValidationError', "Integer type expected on '$key' accessor. Got $value."
                 unless $value ~~ /\A\d+\Z/;
         }
         when(/varchar/) {
-            throw 'ValidationError', "Varchar type expected on '$key' accessor"
+            throw 'ValidationError', "Varchar type expected on '$key' accessor. Got $value."
                 unless $value ~~ /[a-z0-1.,-_ ]+/i;
         }
         when(/text/) {
-            throw 'ValidationError', "Text type expected on '$key' accessor"
+            throw 'ValidationError', "Text type expected on '$key' accessor. Got $value."
                 unless $value ~~ /[a-z0-1.,-_ ]*/i;
         }
         when(/datetime/) {
-            throw 'ValidationError', "Datetime type expected on '$key' accessor"
+            throw 'ValidationError', "Datetime type expected on '$key' accessor. Got $value."
                 unless $value ~~ /\A\d{4}\-\d{2}\-\d{2} \d{2}\:\d{2}\:\d{2}\Z/;
         }
     }

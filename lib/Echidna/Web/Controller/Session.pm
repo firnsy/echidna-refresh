@@ -82,7 +82,7 @@ sub collection_add {
   $data = [ $data ] unless ( ref($data) eq 'ARRAY' );
 
   foreach my $m ( @{ $data } ) {
-    push( $models, Echidna::Model::Session->new( $m ) );
+    push( @{ $models }, Echidna::Model::Session->new( $m ) );
   }
 
   $db->batch_insert( session => $models, sub {

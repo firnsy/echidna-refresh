@@ -80,7 +80,7 @@ sub collection_add {
   $data = [ $data ] unless ( ref($data) eq 'ARRAY' );
 
   foreach my $m ( @{ $data } ) {
-    push( $models, Echidna::Model::Pdns->new( $m ) );
+    push( @{ $models }, Echidna::Model::Pdns->new( $m ) );
   }
 
   $db->batch_insert( pdns => $models, sub {

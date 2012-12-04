@@ -244,7 +244,7 @@ sub _flush_records {
 
   weaken( $self );
 
-  if ( scalar @{ $self->{_echidna}{spooler}{records} } > 0 ) {
+  if( @{ $self->{_echidna}{spooler}{records} } ) {
     # grab the record at the head of the list
     my $record_total = scalar @{ $self->{_echidna}{spooler}{records} };
     my $records_submitted = $record_total >= BATCH_RECORD_MAX ? BATCH_RECORD_MAX : $record_total;
@@ -260,24 +260,21 @@ sub _flush_records {
       my $tx_res_code = $tx->res->code // -1;
 
       if( $tx_res_code == 200 ) {
-        say "Returned Success!";
         # pop on success
         splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
         $self->{_echidna}{spooler}{records_submitted} = 0;
       }
       elsif( $tx_res_code == 502 ) {
-        say "Returned duplicated";
         # pop on duplicate (it's already there)
         splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
         $self->{_echidna}{spooler}{records_submitted} = 0;
       }
       else {
-        say "No response - timeout inactivity";
         # indicate failure
         say 'E: Unable to push record. (' . $tx_res_code . ')';
       }
 
-      $self->_flush_records();
+      $self->_flush_records()
     });
   }
   # otherwise continue processing

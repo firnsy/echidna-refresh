@@ -17,7 +17,7 @@ my $settings = {
    name => 'echidna',
    pass => 'ech1dna',
    pool_size => 10,
-   debug => 1,
+   #debug => 1,
 };
 
 my $db = Echidna::Database->new( dbi => $settings );
@@ -75,20 +75,13 @@ my $session2 = Echidna::Model::Session->new({
 });
 
 
+my $w = AE::timer 2, 0, sub { say "Done" };
 my $cv = AE::cv;
-
-#$db->insert(session => $session, sub {
-#    say "Session Inserted";
-#});
 
 $db->batch_insert(session => [$session, $session2], sub {
     $cv->send;
   });
 
-
-#$db->update(session => { id => '3b9d8298f1b5086d012618feebb2da1a394357c1dab7523443c9f6a743c4c84d' }, { net_dst_flags => 11, asd => "asdfa" }, sub {
-#    say "Update Done";
-#    $cv->send;
-#});
-
 $cv->recv;
+
+$db->close();

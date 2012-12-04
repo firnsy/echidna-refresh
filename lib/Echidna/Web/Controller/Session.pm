@@ -15,21 +15,18 @@ sub collection_get {
   my $criteria = {};
   for my $attr ( @{ Echidna::Model::Session->attributes() } )
   {
-    if( defined($self->param($attr)) )
-    {
+    if (defined $self->param($attr)) {
       $criteria->{$attr} = $self->param($attr);
     }
   }
 
   say Dumper $criteria;
 
-  if( keys( %$criteria ) > 0 )
-  {
+  if ( keys( %$criteria ) > 0 ) {
     eval {
       Echidna::Model::Session->validate($criteria);
     };
-    if( $@ )
-    {
+    if( $@ ) {
       say "Something Failed..";
       $self->render_json({ error => $@ });
       return;
@@ -50,8 +47,7 @@ sub collection_get {
       $self->render_json({took=>$diff});
     });
   }
-  else
-  {
+  else {
     $db->count(session => sub {
       my $count = shift;
 
@@ -79,17 +75,32 @@ sub collection_add {
   my $models =[];
 
   $data = $json->decode( $self->req()->body() );
+  unless (defined($data)){
+    $self->render(
+      status => 201,
+      json => {status => 'Success.'}
+    );
+  }
+
   $data = [ $data ] unless ( ref($data) eq 'ARRAY' );
 
   foreach my $m ( @{ $data } ) {
     push( @{ $models }, Echidna::Model::Session->new( $m ) );
   }
 
-  $db->batch_insert( session => $models, sub {
-    my( $rv, $error ) = @_;
+  if (scalar @$models < 1) {
+    $self->render(
+      status => 201,
+      json => {status => 'Success.'}
+    );
+  }
 
-    if( defined($error) )
-    {
+  say "Inserting " .scalar @$models. " sessions";
+  $db->batch_insert( session => $models, sub {
+    my ($rv, $error) = @_;
+
+    if (defined($error)) {
+      say "Failed to Insert!";
       $self->render(
         status => 502,
         json => { status => 'Error.' }
@@ -97,6 +108,7 @@ sub collection_add {
     }
     else
     {
+      say "Inserted! $rv";
       $self->render(
         status => 200,
         json => { status => 'Success.' }

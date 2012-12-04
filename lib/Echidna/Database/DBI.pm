@@ -31,7 +31,6 @@ sub new {
             __running => {}, # handle pids running
             __counter => 0,  #
             __total   => 0,  # handles created
-            __window_size => 1000,
             __return_objects => 0,
             __loaded_models => [],
         }, $class;
@@ -127,29 +126,43 @@ sub pool_size {
     keys %{ $self->{__pool} } // die;
 }
 
-my $w;
-sub fire_watcher {
-    my ($self, $time) = @_;
+sub running_pids {
+  my ($self) = @_;
 
-    return unless ref $self;
+  my @running = ();
+  @running = grep {
+    my $idx   = $_;
+    my $count = $self->{__running}->{$idx};
 
-    unless (defined $time ~~ /\A\d+\Z/) {
-        warn "Expected integer value on " .__PACKAGE__. '->fire_watcher';
-        return;
-    }
+    $idx if $count > 0;
 
-    $w = AE::timer 1, $time, sub {
-       say  "Running: $self->{__running} " .(keys %{$self->{__running}}). " (".join(", ", (keys %{$self->{__running}})). ")";
-    };
+  } sort keys %{ $self->{__running} };
+
+  return \@running;
+}
+
+sub print_pool_stats {
+  my ($self) = (@_);
+
+  say "\nCounter:      " .$self->{__counter};
+  say "Idle:         [", join(", ", sort @{$self->{__idle}}), "]";
+
+  my $running_pids = $self->running_pids();
+
+  if (scalar @$running_pids < 1) {
+    $running_pids = 'no running pids';
+  } else {
+    $running_pids = join(", ", @{ $self->running_pids() });
+  }
+
+  say "Running:      [", $running_pids, "]";
+  say "-"x76;
 }
 
 sub fetch {
     my $self = shift;
 
-    if ($self->{__debug}) {
-        say  "Running: $self->{__running} " .(keys %{$self->{__running}})
-           . " (".join(", ", (keys %{$self->{__running}})). ")";
-    }
+    say "\n-> CALL: fetch\n" if $self->{__debug};
 
     my $pid = shift @{ $self->{__idle} } // $self->_reuse_pid;
     my $dbh = $self->{__pool}->{$pid};
@@ -157,18 +170,12 @@ sub fetch {
     $self->{__running}->{$pid} += 1;
 
     unless (ref $dbh eq 'AnyEvent::DBI') {
-        if ($self->{__debug}) {
-            say "Counter: " .$self->{__counter};
-            say Dumper "Idle: ", $self->{__idle};
-            say Dumper "Running: ", keys %{ $self->{__running} };
-        }
-        die "HandleFetchError - Could not fetch valid handler";
+        croak "HandleFetchError - Could not fetch valid handler";
     }
 
     if ($self->{__debug}) {
         say "Selected PID: " .$dbh->{child_pid};
-        say "Fetched:      " .ref $dbh;
-        my @pids_current = @{ $self->{__idle} };
+        $self->print_pool_stats();
     }
 
     return $dbh;
@@ -206,7 +213,6 @@ sub _execute_query {
         } @$rs;
 
         $cb->(\@result, undef);
-
     });
 }
 
@@ -224,15 +230,19 @@ sub execute {
 
     }) if ref $cb eq 'CODE';
 
-    say "SQL: $sql" if $self->{__debug};
+  #say "SQL: $sql" if $self->{__debug};
+
     # execute query
     $dbh->exec($sql, sub {
         my ($dbh, $rows, $rv) = @_;
 
         # on failure
-        $#_ or $cv->send($dbh, $@);
+        unless ($#_) {
+          say "QUERY-ERROR: Got a failure here: $@" if $self->{__debug};
+          $cv->send($dbh, $@);
+        }
 
-        $self->return_handle($dbh)
+        $self->return_handle($dbh, $sql)
             or die "Failed to return handler $@";
 
         $cv->send($rows);
@@ -259,16 +269,6 @@ sub search {
     $self->_execute_query($sql, $model, $cb);
 }
 
-sub do {
-    my ($self, $sql, $cb) = @_;
-
-    eval {
-        $self->_execute_query($sql, undef, $cb);
-    }; if ($@) {
-        say "Failed!";
-    }
-}
-
 sub count {
     my ($self, $model_type, $cb) = @_;
 
@@ -289,7 +289,7 @@ sub map_objects {
 }
 
 sub return_handle {
-    my ($self, $dbh) = @_;
+    my ($self, $dbh, $sql) = @_;
 
     croak 'Error - Failed to close db handle'
         unless ref $dbh eq 'AnyEvent::DBI';
@@ -312,54 +312,10 @@ sub return_handle {
         push @{ $self->{__idle} }, $pid."";
     }
 
-    say "Handle $pid is back in the pool" if $self->{__debug};
+    say "Handle $pid is back in the pool just ran $sql" if $self->{__debug};
+    $self->print_pool_stats();
 
     1;
-}
-
-sub window_size {
-    my ($self, $wsize) = @_;
-
-    if (defined $wsize and $wsize ~~ /\A\d+\Z/) {
-        $self->{__window_size} = $wsize;
-    } else {
-        return $self->{__window_size};
-    }
-}
-
-sub search_iter {
-    my ($self, $model_type, $criteria) = @_;
-
-    my $model = $self->_load_model($model_type);
-    $criteria = $self->_validate_criteria($model, $criteria);
-    my $sql   = $self->_mk_query_select($model, $criteria);
-
-    my $limit_query = $sql. " LIMIT 0, " .$self->window_size;
-    my $result = $self->_execute_query($limit_query, $model, undef)->recv;
-
-    my $idx    = 0; # array index
-    my $offset = 0; # limit offset
-    return sub {
-        if ($idx == $self->window_size) {
-            $offset += $self->window_size;
-
-            $limit_query = $sql. " LIMIT " .$offset. ", " .$self->window_size;
-
-            splice @$result;
-            $result = $self->_execute_query($limit_query, $model, undef)->recv;
-
-            $idx = 0;
-            my $object = $result->[$idx];
-            $idx += 1;  # this can be omitted using $result[$idx++]
-
-            return $object;
-        } else {
-            my $object = $result->[$idx];
-            $idx += 1;
-
-            return $object;
-        }
-    };
 }
 
 sub _autoload_models {
@@ -603,12 +559,8 @@ sub insert {
 
     my $model = $self->_load_model($model_type);
 
-    eval {
-        $self->_validate_object($model, $data);
-
-    }; if ($@) {
-        throw $@->message;
-    }
+    eval { $self->_validate_object($model, $data); }; 
+    throw $@->message if $@;
 
     my $sql = $self->_mk_query_insert($data);
     $self->_execute_query($sql, undef, $cb);
@@ -620,16 +572,8 @@ sub batch_insert {
     my $model = $self->_load_model($model_type);
 
     for my $data (@$collection) {
-        eval {
-            $self->_validate_object($model, $data);
-        };
-
-        if ($@) {
-          #throw $@->message;
-            carp "Failed Session on Batch insert";
-            next;
-        }
-    
+        eval { $self->_validate_object($model, $data); };
+        throw $@->message if $@;
     }
 
     my $sql = $self->_mk_batch_insert($collection);

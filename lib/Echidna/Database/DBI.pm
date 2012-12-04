@@ -313,7 +313,7 @@ sub return_handle {
     }
 
     say "Handle $pid is back in the pool just ran $sql" if $self->{__debug};
-    $self->print_pool_stats();
+    $self->print_pool_stats() if $self->{__debug};
 
     1;
 }

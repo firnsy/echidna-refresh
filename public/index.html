@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" ng-app>
+  <head>
+    <title>echidna</title>
+    <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/bootstrap-responsive.min.css" />
+    <link rel="stylesheet" href="css/echidna.main.css" />
+    <link rel="stylesheet" href="css/echidna.grey.css" class="skin-color" />
+  </head>
+  <body>
+    <div id="header">
+      <h1><a href="./dashboard.html">echidna</a></h1>
+
+      <div id="user-nav" class="navbar navbar-inverse">
+        <ul class="nav btn-group">
+          <li class="btn btn-inverse dropdown" id="menu-messages"><a href="#" data-toggle="dropdown" data-target="#menu-messages" class="dropdown-toggle"><i class="icon icon-user"></i> <span class="text">firnsy</span> <span class="label label-important">5</span> <b class="caret"></b></a>
+            <ul class="dropdown-menu">
+              <li><a class="sAdd" title="" href="#">new message</a></li>
+              <li><a class="sInbox" title="" href="#">inbox</a></li>
+              <li><a class="sOutbox" title="" href="#">outbox</a></li>
+              <li><a class="sTrash" title="" href="#">trash</a></li>
+            </ul>
+          </li>
+          <li class="btn btn-inverse"><a title="" href="#"><i class="icon icon-cog"></i> <span class="text">Settings</span></a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="sidebar">
+      <a href="#" class="visible-phone"><i class="icon icon-home"></i> Dashboard</a>
+      <ul>
+        <li class="active"><a href="index.html"><i class="icon icon-home"></i> <span>Dashboard</span></a></li>
+        <li><a href="#"><i class="icon icon-th-list"></i> <span>My Queue</span><span class="label">323</span></a></li>
+        <li><a href="#"><i class="icon icon-eye-open"></i> <span>My Investigations</span><span class="label">5</span></a></li>
+        <li class="submenu">
+          <a href="#"><i class="icon icon-th-large"></i> <span>NSM Data</span></a>
+          <ul>
+            <li><a href="#">Events</a></li>
+            <li><a href="#">Sessions</a></li>
+            <li><a href="#">Passive DNS</a></li>
+            <li><a href="#">Objects</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#"><i class="icon icon-signal"></i> <span>Reports</span></a>
+        </li>
+        <li class="submenu">
+          <a href="#"><i class="icon icon-th"></i> <span>Signatures &amp; Policies</span></a>
+          <ul>
+            <li><a href="form-common.html">Common elements</a></li>
+            <li><a href="form-validation.html">Validation</a></li>
+            <li><a href="form-wizard.html">Wizard</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <div id="content">
+      <div id="content-header">
+        <h1>Dashboard</h1>
+      </div>
+      <div id="breadcrumb">
+        <a href="#" title="Go to Home" class="tip-bottom"><i class="icon-home"></i> Home</a>
+        <a href="#" class="current">Dashboard</a>
+      </div>
+      <div class="container-fluid">
+        <div class="row-fluid">
+          <div class="span12 center" style="text-align: center;">
+            <ul class="stat-boxes">
+              <li>
+                <a href="#">
+                  <div class="left peity_bar_good"><span>2,4,9,7,12,10,12</span>+20%</div>
+                  <div class="right">
+                    <strong>1,236,092,334</strong>
+                    Low Severity
+                  </div>
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <div class="left peity_bar_neutral"><span>20,15,18,14,10,9,9,9</span>0%</div>
+                  <div class="right">
+                    <strong>1,433,324</strong>
+                    Medium Severity
+                  </div>
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <div class="left peity_bar_bad"><span>3,5,9,7,12,20,14</span>-30%</div>
+                  <div class="right">
+                    <strong>8,650,489</strong>
+                    High Severity
+                  </div>
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <div class="left peity_line_good"><span>25,24,26,28,24,39,35</span>-10%</div>
+                  <div class="right">
+                    <strong>1,246,176,147</strong>
+                    Total Events
+                  </div>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="row-fluid">
+          <div class="span12">
+            <div class="alert alert-info">
+              Whoa ... You've been alerted!
+              <a href="#" data-dismiss="alert" class="close">×</a>
+            </div>
+            <div class="widget-box">
+              <div class="widget-title">
+                <span class="icon"><i class="icon-signal"></i></span>
+                <ul class="nav nav-tabs">
+                  <li class="active">
+                    <a data-toggle="tab" href="#tab_events_collectors">Collectors</a>
+                  </li>
+                  <li class>
+                    <a data-toggle="tab" href="#tab_events_severities">Severities</a>
+                  </li>
+                  <li class>
+                    <a data-toggle="tab" href="#tab_events_categories">Categories</a>
+                  </li>
+                  <li class>
+                    <a data-toggle="tab" href="#tab_events_signatures">Signatures</a>
+                  </li>
+                  <li class>
+                    <a data-toggle="tab" href="#tab_events_sources">Sources</a>
+                  </li>
+                  <li class>
+                    <a data-toggle="tab" href="#tab_events_destinations">Destinations</a>
+                  </li>
+                </ul>
+              </div>
+              <div class="widget-content tab-content">
+                <div id="tab_events_collectors" class="tab-pane active">
+                  <div id="chart_events_collectors" style="min-width: 600px; height: 400px; margin: 0 auto"></div>
+                </div>
+                <div id="tab_events_severities" class="tab-pane">
+                </div>
+                <div id="tab_events_categories" class="tab-pane">
+                </div>
+                <div id="tab_events_signatures" class="tab-pane">
+                </div>
+                <div id="tab_events_sources" class="tab-pane">
+                </div>
+                <div id="tab_events_destinations" class="tab-pane">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row-fluid">
+          <div class="span6">
+            <div class="widget-box">
+              <div class="widget-title"><span class="icon"><i class="icon-file"></i></span><h5>Recent Investigations</h5><span title="54 total posts" class="label label-info tip-left">54</span></div>
+              <div class="widget-content nopadding">
+                <ul class="recent-posts">
+                  <li>
+                    <div class="user-thumb">
+                      <img width="40" height="40" alt="User" src="img/demo/av2.jpg">
+                    </div>
+                    <div class="article-post">
+                      <span class="user-info"> By: firnsy on 2 Aug 2012, 09:27 AM, IP: 186.56.45.7 </span>
+                      <p>
+                        <a href="#">False positive SID:32342 - Tuned for DMZ ...</a>
+                      </p>
+                      <a href="#" class="btn btn-primary btn-mini">Edit</a> <a href="#" class="btn btn-success btn-mini">Publish</a> <a href="#" class="btn btn-danger btn-mini">Delete</a>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="user-thumb">
+                      <img width="40" height="40" alt="User" src="img/demo/av3.jpg">
+                    </div>
+                    <div class="article-post">
+                      <span class="user-info"> By: john on on 24 Jun 2012, 04:12 PM, IP: 192.168.24.3 </span>
+                      <p>
+                        <a href="#">Vivamus sed auctor nibh congue, ligula vitae tempus pharetra...</a>
+                      </p>
+                      <a href="#" class="btn btn-primary btn-mini">Edit</a> <a href="#" class="btn btn-success btn-mini">Publish</a> <a href="#" class="btn btn-danger btn-mini">Delete</a>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="user-thumb">
+                      <img width="40" height="40" alt="User" src="img/demo/av1.jpg">
+                    </div>
+                    <div class="article-post">
+                      <span class="user-info"> By: michelle on 22 Jun 2012, 02:44 PM, IP: 172.10.56.3 </span>
+                      <p>
+                        <a href="#">Vivamus sed auctor nibh congue, ligula vitae tempus pharetra...</a>
+                      </p>
+                      <a href="#" class="btn btn-primary btn-mini">Edit</a> <a href="#" class="btn btn-success btn-mini">Publish</a> <a href="#" class="btn btn-danger btn-mini">Delete</a>
+                    </div>
+                  </li>
+                  <li class="viewall">
+                    <a title="View all posts" class="tip-top" href="#"> + View all + </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="span6">
+            <div class="widget-box">
+              <div class="widget-title"><span class="icon"><i class="icon-comment"></i></span><h5>Recent Comments</h5><span title="88 total comments" class="label label-info tip-left">88</span></div>
+              <div class="widget-content nopadding">
+                <ul class="recent-comments">
+                  <li>
+                    <div class="user-thumb">
+                      <img width="40" height="40" alt="User" src="img/demo/av1.jpg">
+                    </div>
+                    <div class="comments">
+                      <span class="user-info"> User: michelle on IP: 172.10.56.3 </span>
+                      <p>
+                        <a href="#">Vivamus sed auctor nibh congue, ligula vitae tempus pharetra...</a>
+                      </p>
+                      <a href="#" class="btn btn-primary btn-mini">Edit</a> <a href="#" class="btn btn-success btn-mini">Approve</a> <a href="#" class="btn btn-warning btn-mini">Mark as spam</a> <a href="#" class="btn btn-danger btn-mini">Delete</a>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="user-thumb">
+                      <img width="40" height="40" alt="User" src="img/demo/av3.jpg">
+                    </div>
+                    <div class="comments">
+                      <span class="user-info"> User: john on IP: 192.168.24.3 </span>
+                      <p>
+                        <a href="#">Vivamus sed auctor nibh congue, ligula vitae tempus pharetra...</a>
+                      </p>
+                      <a href="#" class="btn btn-primary btn-mini">Edit</a> <a href="#" class="btn btn-success btn-mini">Approve</a> <a href="#" class="btn btn-warning btn-mini">Mark as spam</a> <a href="#" class="btn btn-danger btn-mini">Delete</a>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="user-thumb">
+                      <img width="40" height="40" alt="User" src="img/demo/av2.jpg">
+                    </div>
+                    <div class="comments">
+                      <span class="user-info"> User: neytiri on IP: 186.56.45.7 </span>
+                      <p>
+                        <a href="#">Vivamus sed auctor nibh congue, ligula vitae tempus pharetra...</a>
+                      </p>
+                      <a href="#" class="btn btn-primary btn-mini">Edit</a> <a href="#" class="btn btn-success btn-mini">Approve</a> <a href="#" class="btn btn-warning btn-mini">Mark as spam</a> <a href="#" class="btn btn-danger btn-mini">Delete</a>
+                    </div>
+                  </li>
+                  <li class="viewall">
+                    <a title="View all comments" class="tip-top" href="#"> + View all + </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row-fluid">
+          <div id="footer" class="span12">&mdash; <a href="https://github.com/firnsy/echidna-refresh">echidna</a> &ndash; v0.1 (alpha) &mdash;</div>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/angular.min.js"></script>
+    <script src="js/excanvas.min.js"></script>
+    <script src="js/jquery-1.8.3.min.js"></script>
+    <script src="js/jquery.ui.custom.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/jquery.peity.min.js"></script>
+    <script src="js/highcharts.min.js"></script>
+    <script src="js/echidna.js"></script>
+    <script src="js/echidna.dashboard.js"></script>
+
+    <script type="text/javascript">
+$(function () {
+    var chart;
+    $(document).ready(function() {
+        chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'chart_events_collectors',
+                type: 'spline',
+                marginRight: 160,
+                marginBottom: 48
+            },
+            title: {
+                text: 'Events v Collectors',
+                x: -20 //center
+            },
+            xAxis: {
+                title: {
+                  text: 'Month'
+                },
+                categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            },
+            yAxis: {
+                title: {
+                    text: 'Events'
+                },
+                plotLines: [{
+                    value: 0,
+                    width: 1,
+                    color: '#808080'
+               }],
+                           min: 0
+            },
+            tooltip: {
+                formatter: function() {
+                        return '<b>'+ this.series.name +'</b><br/>'+
+                        this.x +': '+ this.y +' events';
+                }
+            },
+            legend: {
+                layout: 'vertical',
+                align: 'right',
+                verticalAlign: 'top',
+                x: 0,
+                y: 10,
+                borderWidth: 0
+            },
+            series: [{
+                name: 'snort@prometheus',
+                data: [70, 6, 95, 145, 182, 21, 25, 265, 233, 183, 19, 96]
+            }, {
+                name: 'sagan@prometheus',
+                data: [2, 8, 57, 113, 170, 20, 248, 241, 21, 141, 86, 25]
+            }, {
+                name: 'snort@thor',
+                data: [9, 60, 35, 84, 15, 170, 16, 19, 143, 90, 3, 10]
+            }, {
+                name: 'sagan@thor',
+                data: [39, 4, 57, 85, 19, 152, 10, 166, 14, 103, 6, 86]
+            }]
+        });
+    });
+});
+</script>
+
+  </body>
+</html>

@@ -573,7 +573,7 @@ sub batch_insert {
 
     for my $data (@$collection) {
         eval { $self->_validate_object($model, $data); };
-        throw $@->message if $@;
+        throw $@->message .' on '. Dumper($data) if $@;
     }
 
     my $sql = $self->_mk_batch_insert($collection);

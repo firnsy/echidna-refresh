@@ -224,21 +224,23 @@ sub _flush_records {
     $self->{_echidna}{ua}->post_json($self->{_echidna}{session_uri} . '/api/pdns?session=' . $self->{_echidna}{session_key} => $record => sub {
       my ($ua, $tx) = @_;
 
-      my $tx_res_code = $tx->res->code // -1;
+      my $status_code = $tx->res->code // -1;
 
-      if( $tx_res_code == 200 ) {
-        # pop on success
-        splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
-        $self->{_echidna}{spooler}{records_submitted} = 0;
-      }
-      elsif( $tx_res_code == 502 ) {
-        # pop on duplicate (it's already there)
-        splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
-        $self->{_echidna}{spooler}{records_submitted} = 0;
-      }
-      else {
-        # indicate failure
-        say 'E: Unable to push record. (' . $tx_res_code . ')';
+      given($status_code) {
+        when(200) {
+          # pop on success
+          splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
+          $self->{_echidna}{spooler}{records_submitted} = 0;
+        }
+        when(502) {
+          # pop on duplicate (it's already there)
+          splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
+          $self->{_echidna}{spooler}{records_submitted} = 0;
+        }
+        default {
+          # indicate failure
+          say 'E: Unable to push record. (' . $status_code . ')';
+        }
       }
 
       $self->_flush_records()

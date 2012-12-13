@@ -1,3 +1,26 @@
+var app = angular.module('echidna', []).
+  config(function($routeProvider) {
+    $routeProvider.
+      when('/dashboard', { templateUrl: '/dashboard.html', controller: DashboardCtrl}).
+      when('/events', { templateUrl: '/events.html', controller: EventsCtrl}).
+      when('/sessions', { templateUrl: '/sessions.html', controller: SessionsCtrl}).
+      when('/pdns', { templateUrl: '/pdns.html', controller: PassiveDNSCtrl}).
+      otherwise({redirectTo: '/dashboard'});
+  });
+
+
+/* angularfy some bootstrap directives */
+app.directive('tooltip', function() {
+  return {
+    restrict:'A',
+    link: function(scope, element, attrs) {
+      var _p = attrs.position || 'left';
+      $(element).tooltip( { placement: _p } );
+    }
+  }
+});
+
+
 $(document).ready(function(){
   $('.submenu > a').click(function(e)
   {
@@ -72,13 +95,6 @@ $(document).ready(function(){
     $('#content-header .btn-group').css({width:'auto'});
     ul.css({'display':'block'});
   }
-
-  /* set tooltips */
-  $('.tip').tooltip();
-  $('.tip-left').tooltip({ placement: 'left' });
-  $('.tip-right').tooltip({ placement: 'right' });
-  $('.tip-top').tooltip({ placement: 'top' });
-  $('.tip-bottom').tooltip({ placement: 'bottom' });
 
   /* fix position of buttons group in top user navigation */
   function fix_position() {

@@ -47,6 +47,19 @@ my $conf = Echidna::Config->new({
   port => 6969,
   key  => 'secret',
 
+  mode => 'push',
+
+  node => {
+    host => 'localhost',
+    port => 6967,
+    key  => 'secret',
+  },
+
+  server => {
+    host => 'localhost',
+    port => 6970,
+  },
+
   cxtracker => {
     mode  => 'delete',
     dir   => '/var/log/cxtracker',

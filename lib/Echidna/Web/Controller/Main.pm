@@ -1,29 +1,56 @@
 package Echidna::Web::Controller::Main;
 use Mojo::Base 'Mojolicious::Controller';
+use Data::Dumper;
 
-sub index {
-    my $self = shift;
+sub login {
+  my $self = shift;
 
-    my $db = $self->db->fetch;
+  # deauthenticate just in case
+  $self->deauthenticate();
 
-    $db->exec("SELECT SLEEP(10)", sub {
-    $self->respond_to(
-        json => {json => {hello => 'world'}},
-        xml  => {text => '<hello>world</hello>'},
-        html => sub {
-            $self->render(text => 'Hello');
-        }
-    );
-    });
+  $self->render('login');
 }
 
-sub by_id {
-    my $self = shift;
+sub logout {
+  my $self = shift;
 
-    my $id = $self->param('id') || '';
-    $self->redirect_to('/') unless $id ~~ /\d+/;
+  $self->deauthenticate();
 
-    $self->render(json => { id => $id, type => 'main' });
+  $self->redirect_to('/login');
+}
+
+sub login_auth {
+  my $self = shift;
+
+  my $username = $self->param('username') // '';
+  my $password = $self->param('password') // '';
+
+  $self->authenticate( $username, $password );
+
+  if( $self->is_user_authenticated ) {
+
+    # get node_id and save to session
+
+
+    say 'All Good';
+    return $self->redirect_to('/');
+  }
+
+  $self->stash( error => 'You SUCK!!!' );
+
+  $self->redirect_to('/login');
+}
+
+sub index {
+  my $self = shift;
+
+  if( $self->is_user_authenticated ) {
+    return $self->render('/index');
+  }
+
+  $self->stash( error => 'You SUCK!!!' );
+
+  $self->redirect_to('/login');
 }
 
 1;

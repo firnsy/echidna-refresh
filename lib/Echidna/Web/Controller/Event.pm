@@ -70,41 +70,29 @@ sub collection_add {
 
   my $json = Mojo::JSON->new();
 
-  my $data = {};
-  my $model;
+  my $data = $json->decode( $self->req()->body() );
+  my $model = Echidna::Model::Event->new( $data );
 
-  eval {
-    $data = $json->decode( $self->req()->body() );
-    $model = Echidna::Model::Event->new( $data );
+  $db->insert( event => $model, sub {
+    my( $rv, $error ) = @_;
 
-    $db->insert( event => $model, sub {
-      my( $rv, $error ) = @_;
+    if( defined($error) )
+    {
+      say 'E: ' . $error;
 
-      if( defined($error) )
-      {
-        say 'E: ' . $error;
-
-        $self->render(
-          status => 502,
-          json => { status => 'Error.' }
-        );
-      }
-      else
-      {
-        $self->render(
-          status => 200,
-          json => { status => 'Success.' }
-        );
-      }
-    });
-  };
-  if( $@ )
-  {
-    $self->render(
-      status => 500,
-      json => { status => 'Error inserting data.' }
-    );
-  }
+      $self->render(
+        status => 502,
+        json => { status => 'Error.' }
+      );
+    }
+    else
+    {
+      $self->render(
+        status => 200,
+        json => { status => 'Success.' }
+      );
+    }
+  });
 
   # we'll render via callbacks
   $self->render_later();

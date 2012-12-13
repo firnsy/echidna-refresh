@@ -47,7 +47,10 @@ use Echidna::Config;
 #
 # GLOBALS
 #
-use constant BATCH_RECORD_MAX => 1000;
+use constant {
+  BATCH_RECORD_MAX => 1000,
+  FETCH_RECORD_MAX => 20000,
+};
 
 #
 # HELPERS
@@ -76,9 +79,13 @@ sub _get_dns_records {
         seek FILE, $spooler->{file_offset}, SEEK_SET;
       }
 
+      my $count = @{ $spooler->{records} };
+
       # verify the data in the dns data files
       while( my $line = readline FILE )
       {
+        last if ( $count++ >= FETCH_RECORD_MAX );
+
         chomp $line;
         $line =~ /^\d{10}/;
         unless($line)
@@ -96,7 +103,7 @@ sub _get_dns_records {
         }
 
         # build the dns structs
-        push( @{ $dns_data }, {
+        push @{ $spooler->{records} }, {
           id                    => sha256_hex(@elements[0..2,4,6]),
           node_id               => $node_id,
           timestamp             => $elements[0],
@@ -107,7 +114,7 @@ sub _get_dns_records {
           query_type            => $elements[5],
           answer                => $elements[6],
           ttl                   => $elements[7],
-        });
+        };
 
         $spooler->{file_offset} = tell FILE;
       }
@@ -115,8 +122,6 @@ sub _get_dns_records {
       close FILE;
     }
   }
-
-  return $dns_data;
 }
 
 sub _cleanup {
@@ -124,6 +129,8 @@ sub _cleanup {
   my $conf = $self->config;
 
   my $file = $self->{_echidna}{spooler}{file};
+
+  weaken($conf);
 
   if( -e $file ) {
     my $mode = $conf->{passivedns}{mode} //= 'delete';
@@ -162,10 +169,11 @@ sub _get_next_file {
 
   # check if our current file has grown first
 
+  weaken($self);
 
   if( opendir my $dh, $dir ) {
     # collect all available files
-    my @files = grep { /$regex/ && -f -r -w "$dir/$_" } readdir($dh);
+    my @files = grep { /$regex/ && -f "$dir/$_" } readdir($dh);
     closedir($dh);
 
     # do we have files
@@ -211,7 +219,9 @@ sub _flush_records {
 
   weaken( $self );
 
-  if( @{ $self->{_echidna}{spooler}{records} } ) {
+  say 'D: _flush_records';
+
+  if( $self->{_echidna}{auth} == 1 && @{ $self->{_echidna}{spooler}{records} } ) {
     # grab the record at the head of the list
     my $record_total = scalar @{ $self->{_echidna}{spooler}{records} };
     my $records_submitted = $record_total >= BATCH_RECORD_MAX ? BATCH_RECORD_MAX : $record_total;
@@ -221,25 +231,30 @@ sub _flush_records {
     my $record = [ @{ $self->{_echidna}{spooler}{records} }[0..$records_submitted-1] ];
 
     say 'D: Posting record to ' . $self->{_echidna}{session_uri} . '/api/pdns (' . @{ $self->{_echidna}{spooler}{records} } . ' in queue)';
-    $self->{_echidna}{ua}->post_json($self->{_echidna}{session_uri} . '/api/pdns?session=' . $self->{_echidna}{session_key} => $record => sub {
+    $self->{_echidna}{ua}->post_json($self->{_echidna}{session_uri} . '/api/pdns' => $record => sub {
       my ($ua, $tx) = @_;
 
       my $status_code = $tx->res->code // -1;
 
       given($status_code) {
-        when(200) {
+        when( 200 ) {
           # pop on success
           splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
           $self->{_echidna}{spooler}{records_submitted} = 0;
         }
-        when(502) {
+        when( 502 ) {
           # pop on duplicate (it's already there)
           splice @{ $self->{_echidna}{spooler}{records} }, 0, $self->{_echidna}{spooler}{records_submitted};
           $self->{_echidna}{spooler}{records_submitted} = 0;
         }
+        # likely need to authorise particularly in push mode
+        when( 403 || 404 ) {
+          $self->{_echidna}{auth} = 0;
+          $self->{_echidna}{spooler}{records_submitted} = 0;
+        }
         default {
           # indicate failure
-          say 'E: Unable to push record. (' . $status_code . ')';
+          say 'E: Unable to push record. (' . $tx_res_code . ')';
         }
       }
 
@@ -248,8 +263,11 @@ sub _flush_records {
   }
   # otherwise continue processing
   else {
-    $self->_process();
+    # TODO: this is recursive and BAD
+    # $self->_process();
   }
+
+  say 'D: leaving _flush_records';
 }
 
 sub _process {
@@ -261,18 +279,42 @@ sub _process {
 
   say 'D: Checking dir: ' . $dir;
 
-  # attempt to get more session if none exist
-  if( ! @{ $self->{_echidna}{spooler}{records} } ) {
-    $self->_get_next_file($self->{_echidna}{spooler}, $dir, $regex);
-
-    # add new sessions to cache
-    push @{ $self->{_echidna}{spooler}{records} }, @{ _get_dns_records($self->{_echidna}{spooler}, $self->{_echidna}{node_id} ) };
+  # check if we have auth
+  # otherwise check if we have our ID
+  if( $self->{_echidna}{node_id} eq '' ) {
+      say 'D: waiting for node ID';
   }
+  elsif( $self->{_echidna}{auth} == 0 ) {
+    # send _auth if in push mode
+    if( $conf->{mode} eq 'push' ) {
+      say 'D: Posting auth to ' . $self->{_echidna}{session_uri} . '/login';
+      $self->{_echidna}{ua}->post_form($self->{_echidna}{session_uri} . '/login' => { username => 'admin', password => 'admin' } => sub {
+        my ($ua, $tx) = @_;
 
-  # check if we have sessions to flush
-  if( @{ $self->{_echidna}{spooler}{records} } &&
-      $self->{_echidna}{spooler}{records_submitted} == 0 ) {
-    $self->_flush_records();
+        if( $tx->res->headers->location =~ /login$/ ) {
+          $self->{_echidna}{auth} = 0;
+        }
+        else {
+          say 'D: got PUSH auth';
+          $self->{_echidna}{auth} = 1;
+        }
+      });
+    }
+  }
+  else {
+    # add new sessions to cache
+    _get_dns_records($self->{_echidna}{spooler}, $self->{_echidna}{node_id} );
+
+    # attempt to get more session if none exist
+    if( ! @{ $self->{_echidna}{spooler}{records} } ) {
+      $self->_get_next_file($self->{_echidna}{spooler}, $dir, $regex);
+    }
+
+    # check if we have sessions to flush
+    if( @{ $self->{_echidna}{spooler}{records} } &&
+        $self->{_echidna}{spooler}{records_submitted} == 0 ) {
+      $self->_flush_records();
+    }
   }
 }
 
@@ -309,7 +351,6 @@ sub _process_stop {
   Mojo::IOLoop->remove( $id );
 }
 
-
 #
 # INIT
 #
@@ -333,14 +374,15 @@ sub startup_post {
   # initialise internal echidna state
   $self->{_echidna} = {
     ua      => Mojo::UserAgent->new(),
+    auth    => 0,
     spooler => {
       file              => '',
       file_offset       => -1,
       records           => [],
       records_submitted => 0,
-    }
+    },
+    node_id => '',
   };
-
 
   #
   # ROUTES
@@ -358,6 +400,7 @@ sub startup_post {
     # Increase inactivity timeout for connection a bit
     Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
+    weaken($self);
     weaken($app);
 
     # Incoming message
@@ -396,16 +439,23 @@ sub startup_post {
         }
         when('auth_validate')
         {
-          $app->{_echidna}{session_key} = $msg->{session_key};
-          $app->{_echidna}{session_uri} = $msg->{session_uri};
           $app->{_echidna}{node_id}     = $msg->{node_id};
+
+          if( $conf eq 'pull' ) {
+            $app->{_echidna}{session_key} = $msg->{session_key};
+            $app->{_echidna}{session_uri} = $msg->{session_uri};
+            $app->{_echidna}{auth} = 1;
+
+            say 'D: Session key granted: ' . $app->{_echidna}{session_key} . ' (' . $app->{_echidna}{session_uri} . ')';
+            say 'D: Session key ' . $app->{_echidna}{session_key} . ' granted from ' . $app->{_echidna}{session_uri} . ' we are node ' . $app->{_echidna}{node_id};
+          }
 
           $res->{status} = 200;
 
-          say 'D: Session key granted: ' . $app->{_echidna}{session_key} . ' (' . $app->{_echidna}{session_uri} . ')';
-          say 'D: Session key ' . $app->{_echidna}{session_key} . ' granted from ' . $app->{_echidna}{session_uri} . ' we are node ' . $app->{_echidna}{node_id};
 
-          $app->_process_start();
+          if( $conf->{mode} eq 'pull' ) {
+            $app->_process_start();
+          }
         }
         when('ping')
         {
@@ -424,7 +474,10 @@ sub startup_post {
     $self->on(finish => sub {
       my $self = shift;
       $self->app->log->debug('D: connection closed.');
-      $self->app->_process_stop();
+
+      if( $conf->{mode} eq 'pull' ) {
+        $self->app->_process_stop();
+      }
     });
 
     $self->on(error => sub {
@@ -434,6 +487,13 @@ sub startup_post {
       #_process_stop();
     });
   });
+
+  # in push mode start the process
+  if( $conf->{mode} eq 'push' ) {
+    $self->{_echidna}{session_uri} = 'http://' . $conf->{server}{host} . ':' . $conf->{server}{port};
+
+    $self->_process_start();
+  }
 }
 
 1;

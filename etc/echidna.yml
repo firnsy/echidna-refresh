@@ -15,20 +15,23 @@ port: 6970
 
 nodes:
   834a12ea90939d6c52127b98ee58ce3d877945d10c44f47a24d61240d2932c1a:
-    type: "cxtracker"
+    type: cxtracker
     host: 127.0.0.1
     port: 6969
     key: "woot"
+    mode: push
   3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b:
-    type: "barnyard2"
+    type: barnyard2
     host: 127.0.0.1
     port: 6968
     key: "woot"
+    mode: push
   4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023:
-    type: "passivedns"
+    type: passivedns
     host: 127.0.0.1
     port: 6967
     key: "woot"
+    mode: push
 
 #
 # LOG

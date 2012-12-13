@@ -3,9 +3,22 @@
 #
 # Specify the network settings for the server
 #
+node:
+  host: localhost
+  port: 6967
+  key: 'woot'
+
 host: localhost
 port: 6967
 key: 'woot'
+
+mode: push
+
+server:
+  host: localhost
+  port: 6970
+
+
 #
 # PASSIVEDNS Configuration
 #

@@ -36,6 +36,7 @@ use List::Util qw(first);
 use Mojo::IOLoop;
 use Mojo::JSON;
 use Mojo::UserAgent;
+use Mojolicious::Plugin::Authentication;
 use Scalar::Util qw(weaken);
 
 #
@@ -240,32 +241,52 @@ sub startup_post {
     );
   });
 
+  $self->plugin('authentication' => {
+    autoload_user => 1,
+    session_key   => 'echidna',
+    load_user     => sub {
+      my( $app, $uid ) = @_;
+      say 'D: load user';
+      return {};
+    },
+    validate_user => sub {
+      my( $app, $username, $password, $extra_data) = @_;
+      say 'D: validate ' . $username . ':' . $password;
+      if( $username eq "admin" and $password eq "admin" ) {
+        return 1;
+      }
+
+      return 0;
+    }
+  });
+
+  # tune default expiration to 1 day
+  $self->sessions->default_expiration(86400);
+
   $self->secret('Echidna Echidna Secret Key');
 
   my $router = $self->routes;
 
   $router->namespace('Echidna::Web::Controller');
-  $router->get('/')->to('main#index')->name('index');
 
-#  my @resources = qw(
-#    session
-#    event
-#    agent
-#    node
-#  );
-#
-#  for my $resource (@resources) {
-#
-#      my $uri = '/api/' .$resource;
-#
-#      my $route = $router->under($uri);
-#
-#      $route->get('/')->to($resource .'#index');
-#      $route->get('/:id', { id => qr/\d+/ })->to($resource .'#by_id');
-#      $route->post('/')->to($resource .'#add');
-#      $route->put('/:id', { id => qr/\d+/ })->to($resource .'#update');
-#      $route->delete('/:id', { id => qr/\d+/ })->to($resource .'#delete');
-#  }
+  $router->get('/login')->to('main#login');
+  $router->post('/login')->to('main#login_auth');
+
+  $router->get('/logout')->to('main#logout');
+
+  $router->get('/')->to('main#index');
+
+  my $auth_router = $router->route('/')->to(cb => sub {
+    my $self = shift;
+
+    if( $self->is_user_authenticated ) {
+      return 1;
+    }
+
+    # not authenticated so redirect to login
+    $self->redirect_to('/login');
+    return 0;
+  });
 
   # establish an authentication route so that anything under /api
   # needs to supply a valid session key to proceed
@@ -288,6 +309,7 @@ sub startup_post {
       return undef;
   });
 
+  $api_router = $auth_router->route('/api')->over(authenticated => 1);
   my $route;
 
   #

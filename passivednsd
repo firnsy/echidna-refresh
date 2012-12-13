@@ -48,6 +48,19 @@ my $conf = Echidna::Config->new({
   port => 6967,
   key  => 'secret',
 
+  mode => 'push',
+
+  node => {
+    host => 'localhost',
+    port => 6967,
+    key  => 'secret',
+  },
+
+  server => {
+    host => 'localhost',
+    port => 6970,
+  },
+
   passivedns => {
     mode  => 'delete',
     dir   => '/var/log/cxtracker',

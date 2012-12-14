@@ -287,7 +287,7 @@ sub _flush_records {
         }
         default {
           # indicate failure
-          say 'E: Unable to push record. (' . $tx_res_code . ')';
+          say 'E: Unable to push record. (' . $status_code . ')';
         }
       }
 

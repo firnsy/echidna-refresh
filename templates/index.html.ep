@@ -73,13 +73,6 @@
     <script src="js/echidna.passivedns.js"></script>
 
     <script type="text/ng-template" id="/dashboard.html">
-<div id="content-header">
-  <h1>Dashboard</h1>
-</div>
-<div id="breadcrumb">
-  <a href="#" title="Go to Home" tooltip position="bottom"><i class="icon-home"></i> Home</a>
-  <a href="#" class="current">Dashboard</a>
-</div>
 <div class="container-fluid">
   <div class="row-fluid">
     <div class="span12 center" style="text-align: center;">
@@ -272,14 +265,56 @@
     </script>
 
     <script type="text/ng-template" id="/events.html">
-<div id="content-header">
-  <h1>Events</h1>
-</div>
-<div id="breadcrumb">
-  <a href="#/dashboard" title="Go to Home" tooltip position="bottom"><i class="icon-home"></i> Home</a>
-  <a href="#/dashboard" class="current">Events</a>
-</div>
 <div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span12 center" style="text-align: center;">
+      <div class="widget-box">
+        <div class="widget-title">
+          <span class="icon"><i class="icon-exclamation-sign"></i></span>
+          <h5>Events</h5><h6 class="muted">({{eventCount()}} unclassified records)</h6>
+        </div>
+        <div class="widget-content nopadding">
+          <table class="table table-clean">
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Source IP</th>
+                <th>Desination IP</th>
+                <th>Signature</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-repeat="e in pagedItems[currentPage] | orderBy:sortField:sortReverse">
+                <td><span class="badge badge-priority" ng-class="priorityClass(e.sig_priority)">{{e.sig_priority}}</span></td>
+                <td>{{formatEventSourceIP(e)}}</td>
+                <td>{{formatEventDestinationIP(e)}}</td>
+                <td>{{e.sig_message}}</td>
+                <td>{{formatEventTimestamp(e)}}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="widget-footer fg-toolbar">
+            <div class="input-prepend pull-left">
+              <span class="add-on"><i class="icon-search"></i></span>
+              <input type="text" ng-model="query" ng-change="search()" placeholder="search"></input>
+            </div>
+            <div class="pull-right">
+              <div class="pagination pagination-clean">
+                <ul>
+                  <li ng-class="{disabled: isFirstPage()}"><a ng-click="firstPage()">&laquo;</a></li>
+                  <li ng-class="{disabled: isFirstPage()}"><a ng-click="prevPage()">&lsaquo;</a></li>
+                  <li ng-repeat="n in getPageList()" ng-class="{active: currentPage == n}"><a ng-click="setPage(n)">{{n+1}}</a></li>
+                  <li ng-class="{disabled: isLastPage()}"><a ng-click="nextPage()">&rsaquo;</a></li>
+                  <li ng-class="{disabled: isLastPage()}"><a ng-click="lastPage()">&raquo;</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="row-fluid">
     <div id="footer" class="span12">&mdash; <a href="https://github.com/firnsy/echidna-refresh">echidna</a> &ndash; v0.1 (alpha) &mdash;</div>
   </div>
@@ -287,13 +322,6 @@
     </script>
 
     <script type="text/ng-template" id="/sessions.html">
-<div id="content-header">
-  <h1>Sessions</h1>
-</div>
-<div id="breadcrumb">
-  <a href="#/dashboard" title="Go to Home" tooltip position="bottom"><i class="icon-home"></i> Home</a>
-  <a href="#/sessions" class="current">Sessions</a>
-</div>
 <div class="container-fluid">
   <div class="row-fluid">
     <div id="footer" class="span12">&mdash; <a href="https://github.com/firnsy/echidna-refresh">echidna</a> &ndash; v0.1 (alpha) &mdash;</div>
@@ -302,14 +330,35 @@
     </script>
 
     <script type="text/ng-template" id="/pdns.html">
-<div id="content-header">
-  <h1>Passive DNS</h1>
-</div>
-<div id="breadcrumb">
-  <a href="#/dashboard" title="Go to Home" tooltip position="bottom"><i class="icon-home"></i> Home</a>
-  <a href="#/pdns" class="current">Passive DNS</a>
-</div>
 <div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span12 center" style="text-align: center;">
+      <div class="widget-box">
+        <div class="widget-title">
+          <span class="icon"><i class="icon-exclamation-sign"></i></span>
+          <h5>Passive DNS</h5><h6 class="muted">({{dnsCount()}} records)</h6>
+        </div>
+        <div class="widget-content nopadding">
+          <table class="table table-clean">
+            <tr>
+              <th>Query</th>
+              <th>Type</th>
+              <th>Answer</th>
+              <th>TTL</th>
+              <th>Timestamp</th>
+            </tr>
+            <tr ng-repeat="d in dns">
+              <td>{{d.query}}</td>
+              <td>{{d.query_type}}</td>
+              <td>{{d.query_answer}}</td>
+              <td>{{d.ttl}}</td>
+              <td>{{formatTimestamp(d.timestamp)}}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="row-fluid">
     <div id="footer" class="span12">&mdash; <a href="https://github.com/firnsy/echidna-refresh">echidna</a> &ndash; v0.1 (alpha) &mdash;</div>
   </div>

@@ -2,6 +2,8 @@ package Echidna::Web::Controller::Event;
 use Mojo::Base 'Mojolicious::Controller';
 
 use Data::Dumper;
+use Mojo::JSON;
+
 use Echidna::Model::Event;
 
 sub collection_get {
@@ -11,54 +13,41 @@ sub collection_get {
   Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
   my $criteria = {};
-  for my $attr ( @{ Echidna::Model::Event->attributes() } )
-  {
-    if( defined($self->param($attr)) )
-    {
+  for my $attr ( @{ Echidna::Model::Event->attributes() } ){
+    if (defined $self->param($attr)) {
       $criteria->{$attr} = $self->param($attr);
     }
   }
 
-  say Dumper $criteria;
+  for my $attr ('limit', 'offset') {
+    if (defined $self->param($attr)) {
+      $criteria->{$attr} = $self->param($attr);
+    }
+  }
 
-  if( keys( %$criteria ) > 0 )
-  {
-    eval {
-      Echidna::Model::Event->validate($criteria);
-    };
-    if( $@ )
+  if (defined $self->param('fields')) {
+    my @fields = split ',', $self->param('fields');
+    $criteria->{fields} = \@fields;
+  }
+
+  $db->search(event => $criteria, sub {
+    my ($events, $error) = @_;
+
+    if (defined($error)) {
+      $self->render(
+        status => 502,
+        json => []
+      );
+    }
+    else
     {
-      say "Something Failed..";
-      $self->render_json({ error => $@ });
-      return;
+      $self->render(
+        status => 200,
+        json   => $events
+      );
     }
 
-    my $s_time = time;
-    $db->search(event => $criteria, sub {
-      my $events = shift;
-
-      my $e_time = time;
-      my $diff = $e_time - $s_time;
-      say "Took: " .$diff;
-
-      #$self->respond_to(
-      #    json => { json => { "total" => $diff } },
-      #    any  => { json => $events },
-      #);
-      $self->render_json({took=>$diff});
-    });
-  }
-  else
-  {
-    $db->count(event => sub {
-      my $count = shift;
-
-      $self->respond_to(
-        json => { json => { total => $count } },
-        xml  => { text => "<total>" . $count->[0] . "</total>" }
-      );
-    });
-  }
+  });
 
   # we'll render via callbacks
   $self->render_later();

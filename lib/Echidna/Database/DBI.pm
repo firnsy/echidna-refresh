@@ -13,11 +13,14 @@ use AnyEvent;
 use AnyEvent::DBI;
 use Carp;
 use DBI;
+use Scalar::Util qw(looks_like_number);
 
 use Data::Dumper;
 use Echidna::Model;
 use Echidna::Common::Util;
 use Echidna::Common::Error;
+
+use Echidna::Database::Query::SQLRead;
 
 my $instance;
 sub new {
@@ -123,7 +126,7 @@ sub DESTROY {
 
 sub pool_size {
     my $self = shift;
-    keys %{ $self->{__pool} } // die;
+    keys %{ $self->{__pool} } // croak;
 }
 
 sub running_pids {
@@ -194,22 +197,18 @@ sub _reuse_pid {
     return $pid;
 }
 
-sub sleep {
-#
-}
-
 sub _execute_query {
-    my ($self, $sql, $model, $cb) = @_;
+    my ($self, $sql, $params, $model, $cb, $fields) = @_;
 
-    $self->execute($sql, sub {
+    $self->execute($sql, $params, sub {
         my ($rs, $error) = @_;
 
-        return unless ref $cb eq 'CODE';
+        croak 'Expected Callback' unless ref $cb eq 'CODE';
 
         return $cb->(undef, $error) if defined $error;
 
         my @result = map {
-            $self->_map_properties($model, $_)
+            $self->_map_properties($model, $_, $fields)
         } @$rs;
 
         $cb->(\@result, undef);
@@ -217,7 +216,7 @@ sub _execute_query {
 }
 
 sub execute {
-    my ($self, $sql, $cb) = @_;
+    my ($self, $sql, $params, $cb) = @_;
 
     my $dbh = $self->fetch;
     my $cv  = AE::cv;
@@ -230,43 +229,69 @@ sub execute {
 
     }) if ref $cb eq 'CODE';
 
-  #say "SQL: $sql" if $self->{__debug};
-
     # execute query
-    $dbh->exec($sql, sub {
+    my $wrap_cb = sub {
         my ($dbh, $rows, $rv) = @_;
 
         # on failure
         unless ($#_) {
-          say "QUERY-ERROR: Got a failure here: $@" if $self->{__debug};
           $cv->send($dbh, $@);
         }
 
         $self->return_handle($dbh, $sql)
-            or die "Failed to return handler $@";
+            or croak "Failed to return handler $@";
 
         $cv->send($rows);
-    });
+    };
+
+    if (ref $params eq 'ARRAY' and scalar @$params > 0) {
+      $dbh->exec($sql, @$params, $wrap_cb);
+    } 
+    else {
+      $dbh->exec($sql, $wrap_cb);
+    }
 
     $cv;
-
-}
-
-sub build_query {
-    my ($self, $model_type, $criteria, $cb) = @_;
-
-    my $model = $self->_load_model($model_type);
-    $self->_mk_query_select($model, $criteria);
 }
 
 sub search {
     my ($self, $model_type, $criteria, $cb) = @_;
 
+    my $query = Echidna::Database::Query::SQLRead->new;
+
+    for my $option ('limit', 'offset') {
+      if (looks_like_number($criteria->{$option})) {
+        $query->$option($criteria->{$option});
+        delete $criteria->{$option};
+      }
+    }
+
     my $model = $self->_load_model($model_type);
+    my $table = lc $1 if $model =~ /::(\w+)$/;
+
+    my $fields = $model->attributes;
+
+    if (exists $criteria->{fields}) {
+      if (ref $criteria->{fields} eq 'ARRAY' and scalar @{ $criteria->{fields} } > 0) {
+        $fields = $self->_clean_attributes($model, $criteria->{fields});
+      }
+
+      delete $criteria->{fields};
+    }
+
+    # Note: This method cleans criteria according to the model attributes
     $self->_validate_criteria($model, $criteria);
 
-    my $sql = $self->_mk_query_select($model, $criteria);
-    $self->_execute_query($sql, $model, $cb);
+    $query->fields($fields)
+          ->table($table)
+          ->where($criteria);
+
+    my $sql    = $query->render;
+    my $params = $query->params;
+
+    say "SQL:    $sql";
+    say "Params: " .Dumper $params;
+    $self->_execute_query($sql, $params, $model, $cb, $fields);
 }
 
 sub count {
@@ -391,12 +416,6 @@ sub _load_model {
     return $model_path;
 }
 
-# Clean Criteria
-#
-#  Strip all key/values that doesn't match on the model attributes definition
-#  @param String $model
-#  @param Hashref $criteria
-#  @return Hashref
 sub _clean_criteria {
     my ($model, $criteria) = @_;
 
@@ -405,17 +424,6 @@ sub _clean_criteria {
     }
 
     return $criteria;
-}
-
-sub _mk_query_select {
-    my ($self, $model, $criteria) = @_;
-
-    my $table = lc $1 if $model =~ /::(\w+)$/;
-
-    $criteria = _clean_criteria($model, $criteria);
-
-    return "SELECT " .join(", ", @{ $model->attributes })
-          ." FROM " .$table. " " .$self->create_filter($criteria);
 }
 
 sub _mk_query_count {
@@ -482,7 +490,6 @@ sub _mk_batch_insert {
     }
 
     $sql;
-  
 }
 
 sub _mk_query_update {
@@ -509,20 +516,53 @@ sub _mk_query_update {
 }
 
 sub _map_properties {
-    my ($self, $model, $row) = @_;
+    my ($self, $model, $row, $fields) = @_;
 
     return $row unless $model;
 
     my $hash = {};
-    $hash->{$_} = shift @$row for (@{ $model->attributes });
+
+    if (ref $fields eq 'ARRAY' and scalar @$fields > 0) {
+      if (scalar @$fields != scalar @$row) {
+        warn "Something is seriously wrong here, fields and result values should be equal in size. " .__PACKAGE__. '->_map_properties ';
+      }
+
+      for my $field (@$fields) {
+        $hash->{$field} = shift @$row if $field ~~ $model->attributes;
+      }
+    }
+    else {
+      $hash->{$_} = shift @$row for @{ $model->attributes };
+    }
 
     return $model->new($hash) if $self->{__return_objects};
 
     $hash
 }
 
+sub _clean_attributes {
+  my ($self, $model, $attributes) = @_;
+
+  unless (ref $attributes eq 'ARRAY') {
+    croak 'Expected arrayref as attributes';
+  }
+
+  my $clean = [];
+  for my $attr (@$attributes) {
+    if (grep $attr, @{ $model->attributes }) {
+      push @$clean, $attr;
+    }
+  }
+
+  return $clean;
+}
+
 sub _validate_criteria {
     my ($self, $model, $criteria) = @_;
+
+    for my $key (keys %$criteria) {
+        delete $criteria->{$key} unless $key ~~ $model->attributes;
+    }
 
     eval {
         $model->validate($criteria);
@@ -563,7 +603,7 @@ sub insert {
     throw $@->message if $@;
 
     my $sql = $self->_mk_query_insert($data);
-    $self->_execute_query($sql, undef, $cb);
+    $self->_execute_query($sql, undef, undef, $cb);
 }
 
 sub batch_insert {
@@ -577,7 +617,7 @@ sub batch_insert {
     }
 
     my $sql = $self->_mk_batch_insert($collection);
-    $self->_execute_query($sql, undef, $cb);
+    $self->_execute_query($sql, undef, undef, $cb);
 }
 
 sub update {
@@ -596,7 +636,7 @@ sub update {
 
     my $sql = $self->_mk_query_update($model, $criteria, $data);
 
-    $self->_execute_query($sql, undef, $cb);
+    $self->_execute_query($sql, undef, undef, $cb);
 }
 
 sub delete {
@@ -608,7 +648,7 @@ sub delete {
 sub create_filter {
     my ($self, $filter) = @_;
 
-    if ( ref($filter) ne 'HASH' ) {
+    if ( ref $filter ne 'HASH' or ! keys %$filter) {
         return '';
     }
 

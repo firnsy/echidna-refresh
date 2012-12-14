@@ -41,5 +41,33 @@ __PACKAGE__->set_properties({
     meta_by2_event_id => 'any',
 });
 
+#
+# my $event   = Echidna::Model::Event->new($args);
+# my $session = $event->session();
+#
+# if (ref $session eq 'Echidna::Model::Session') {
+#   say "From: " .$session->time_start. " To: " .$session->time_end;
+# }
+#
+sub session {
+  my ($self) = @_;
+
+  my $session_criteria = {
+      net_src_ip => $self->net_src_ip,
+      net_dst_ip => $self->net_dst_ip,
+      net_dst_port => $self->net_dst_port,
+      net_src_port => $self->net_src_port,
+      net_protocol => $self->net_protocol,
+      time_start => {
+        '$gte' => $self->timestamp,
+      },
+      time_end => {
+        '$lte' => $self->timestamp,
+      }
+  };
+
+  return $session_criteria;
+}
+
 1;
 

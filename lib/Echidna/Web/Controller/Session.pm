@@ -1,7 +1,7 @@
 package Echidna::Web::Controller::Session;
+use Mojo::Base 'Mojolicious::Controller';
 
 use Data::Dumper;
-use Mojo::Base 'Mojolicious::Controller';
 use Mojo::JSON;
 
 use Echidna::Model::Session;
@@ -13,54 +13,41 @@ sub collection_get {
   Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
   my $criteria = {};
-  for my $attr ( @{ Echidna::Model::Session->attributes() } )
-  {
-    if( defined($self->param($attr)) )
-    {
+  for my $attr ( @{ Echidna::Model::Session->attributes() } ){
+    if (defined $self->param($attr)) {
       $criteria->{$attr} = $self->param($attr);
     }
   }
 
-  say Dumper $criteria;
+  for my $attr ('limit', 'offset') {
+    if (defined $self->param($attr)) {
+      $criteria->{$attr} = $self->param($attr);
+    }
+  }
 
-  if( keys( %$criteria ) > 0 )
-  {
-    eval {
-      Echidna::Model::Session->validate($criteria);
-    };
-    if( $@ )
+  if (defined $self->param('fields')) {
+    my @fields = split ',', $self->param('fields');
+    $criteria->{fields} = \@fields;
+  }
+
+  $db->search(session => $criteria, sub {
+    my ($sessions, $error) = @_;
+
+    if (defined($error)) {
+      $self->render(
+        status => 502,
+        json => []
+      );
+    }
+    else
     {
-      say "Something Failed..";
-      $self->render_json({ error => $@ });
-      return;
+      $self->render(
+        status => 200,
+        json   => $sessions
+      );
     }
 
-    my $s_time = time;
-    $db->search(session => $criteria, sub {
-      my $sessions = shift;
-
-      my $e_time = time;
-      my $diff = $e_time - $s_time;
-      say "Took: " .$diff;
-
-      #$self->respond_to(
-      #    json => { json => { "total" => $diff } },
-      #    any  => { json => $sessions },
-      #);
-      $self->render_json({took=>$diff});
-    });
-  }
-  else
-  {
-    $db->count(session => sub {
-      my $count = shift;
-
-      $self->respond_to(
-        json => { json => { total => $count } },
-        xml  => { text => "<total>" . $count->[0] . "</total>" }
-      );
-    });
-  }
+  });
 
   # we'll render via callbacks
   $self->render_later();
@@ -122,8 +109,7 @@ sub id_get {
   my $db = $self->app->db();
   my $id = $self->param('id') || '';
 
-  if( $id ~~ /\d+/ )
-  {
+  if ( $id ~~ /\d+/ ) {
     $db->search(session => { id => $id }, sub {
       my $session = shift;
 
@@ -133,8 +119,7 @@ sub id_get {
       );
     });
   }
-  else
-  {
+  else {
     $self->render(json => {
       error => 'Invalid Id for Session Resource.'
     });

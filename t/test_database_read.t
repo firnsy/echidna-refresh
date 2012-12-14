@@ -15,7 +15,7 @@ my $settings = {
    user => 'echidna',
    name => 'echidna',
    pass => 'ech1dna',
-   pool_size => 10,
+   pool_size => 1,
    #debug => 1,
 };
 
@@ -26,14 +26,20 @@ $db->return_handle($dbh);
 
 my $sessions = $db->search(session => { time_start => '2012-12-12 12:12:12', non_existent => 'asd' })->recv;
 
-ok( ref $sessions eq 'ARRAY', 'Sessions result should be an array');
+ok(ref $sessions eq 'ARRAY', 'Sessions result should be an array');
 
 my $cv = AE::cv;
 
 # enabling object mapping
 $db->map_objects(1);
-$db->search(session => { net_dst_port => '22' }, sub {
-    my $sessions = shift;
+$db->search(session => { net_dst_port => 53 }, sub {
+    my ($sessions, $error) = @_;
+
+    if (defined $error) {
+      die "FAILED: $error";
+      $cv->send();
+    }
+
     if (scalar @$sessions < 1) {
       $cv->send(scalar @$sessions) 
     } else {
@@ -46,8 +52,5 @@ $db->search(session => { net_dst_port => '22' }, sub {
 });
 
 $cv->recv;
-
-my $cv2 = AE::cv;
-$db->map_objects(1);
 
 $db->close();

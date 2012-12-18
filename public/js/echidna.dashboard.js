@@ -1,4 +1,4 @@
-function DashboardCtrl( $scope ) {
+function DashboardCtrl( $scope, echidnaService ) {
 
 
   //
@@ -66,8 +66,8 @@ function DashboardCtrl( $scope ) {
   //
   // INIT
   echidna.peity();
-
   $scope._initCharts();
+  echidnaService.setPage('dashboard');
 };
 
 

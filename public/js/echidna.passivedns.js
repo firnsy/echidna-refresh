@@ -1,4 +1,4 @@
-function PassiveDNSCtrl( $scope ) {
+function PassiveDNSCtrl( $scope, echidnaService ) {
   $scope.dns = [{"timestamp":1353554322,"net_src_ip":"192.168.10.20","net_dst_ip":"192.168.10.1","rr_class":"IN","query":"realtime.services.disqus.com.","query_type":"A","query_answer":"67.228.181.220","ttl":141},
 {"timestamp":1353554322,"net_src_ip":"192.168.10.20","net_dst_ip":"192.168.10.1","rr_class":"IN","query":"realtime.services.disqus.com.","query_type":"A","query_answer":"67.228.181.218","ttl":141},
 {"timestamp":1353554322,"net_src_ip":"192.168.10.20","net_dst_ip":"192.168.10.1","rr_class":"IN","query":"realtime.services.disqus.com.","query_type":"A","query_answer":"67.228.181.219","ttl":141},
@@ -59,7 +59,10 @@ function PassiveDNSCtrl( $scope ) {
     return t;
   };
 
-  console.log('PassiveDNSCtrl in scope.');
+  //
+  // INIT
+
+  echidnaService.setPage('passivedns');
 };
 
 

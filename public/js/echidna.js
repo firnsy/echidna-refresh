@@ -1,29 +1,82 @@
-var app = angular.module('echidna', []).
-  config(function($routeProvider) {
+var app = angular.module('echidna', [])
+  .config(function($routeProvider) {
     $routeProvider.
       when('/dashboard', { templateUrl: '/dashboard.html', controller: DashboardCtrl}).
       when('/events', { templateUrl: '/events.html', controller: EventsCtrl}).
       when('/sessions', { templateUrl: '/sessions.html', controller: SessionsCtrl}).
       when('/pdns', { templateUrl: '/pdns.html', controller: PassiveDNSCtrl}).
       otherwise({redirectTo: '/dashboard'});
+  })
+  /* angularfy some bootstrap directives */
+  .directive('tooltip', function() {
+    return {
+      restrict:'A',
+      link: function(scope, element, attrs) {
+        var _p = attrs.position || 'left';
+        $(element).tooltip( { placement: _p } );
+      }
+    }
+  })
+  .service('echidnaService', function($rootScope, $http) {
+    var _data = {
+      events: [],
+      sessions: [],
+      passivedns: [],
+      objects: []
+    };
+
+    var _activePage = 'dashboard';
+
+    return {
+      setPage: function(page) {
+        _activePage = page;
+
+        $rootScope.$broadcast('pageChanged', _activePage);
+      },
+      getPage: function() {
+      }
+    };
+  })
+  .controller('NavigationCtrl', function($scope, echidnaService) {
+    $scope._page = 'dashboard';
+
+    $scope.$on('pageChanged', function(event, page) {
+      $scope._page = page;
+    });
+
+    $scope.classPageActive = function(page) {
+      if( page === 'nsm-data' ) {
+        return ( [ 'events', 'sessions', 'objects', 'passivedns' ].indexOf($scope._page) != -1 ) ? 'active' : '';
+      }
+
+      return ( page === $scope._page ) ? 'active' : '';
+    };
   });
 
 
-/* angularfy some bootstrap directives */
-app.directive('tooltip', function() {
-  return {
-    restrict:'A',
-    link: function(scope, element, attrs) {
-      var _p = attrs.position || 'left';
-      $(element).tooltip( { placement: _p } );
-    }
+var windowResizeHelper = function() {
+  var _w = $(window).width();
+
+  console.log(_w);
+
+  var _ul = $('#sidebar > ul');
+
+  if( _w <= 478 ) {
+    _ul.css({'display':'none'});
   }
-});
+  else if( _w > 479 ) {
+    _ul.css({'display':'block'});
+    $('#content-header .btn-group').css({width:'auto'});
+  }
+  else if( _w > 768 ) {
+    $('#user-nav > ul').css({width:'auto',margin:'0'});
+    $('#content-header .btn-group').css({width:'auto'});
+  }
+};
 
 
-$(document).ready(function(){
-  $('.submenu > a').click(function(e)
-  {
+$(document).ready(function() {
+  $('.submenu > a').click(function(e) {
     e.preventDefault();
     var submenu = $(this).siblings('ul');
     var li = $(this).parents('li');
@@ -70,35 +123,13 @@ $(document).ready(function(){
   });
 
   /* update select parameters on windo resizing */
-  $(window).resize(function() {
-    var _w = $(window).width();
-
-    if( _w <= 478 ) {
-      ul.css({'display':'none'});
-      fix_position();
-    }
-    else if( _w > 479 ) {
-      ul.css({'display':'block'});
-      $('#content-header .btn-group').css({width:'auto'});
-    }
-    else if( _w > 768 ) {
-      $('#user-nav > ul').css({width:'auto',margin:'0'});
-      $('#content-header .btn-group').css({width:'auto'});
-    }
-  });
+  $(window).resize( windowResizeHelper() );
 
   if( $(window).width() <= 468 ) {
     ul.css({'display':'none'});
-    fix_position();
   }
   if( $(window).width() > 479 ) {
     $('#content-header .btn-group').css({width:'auto'});
     ul.css({'display':'block'});
-  }
-
-  /* fix position of buttons group in top user navigation */
-  function fix_position() {
-    var uwidth = $('#user-nav > ul').width();
-    $('#user-nav > ul').css({width:uwidth,'margin-left':'-' + uwidth / 2 + 'px'});
   }
 });

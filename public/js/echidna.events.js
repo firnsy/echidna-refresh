@@ -1,4 +1,4 @@
-function EventsCtrl( $scope, $filter ) {
+function EventsCtrl( $scope, $filter, echidnaService ) {
   $scope.items = [{"id":"7a4aa674ad44095dfdc2f55c724a4b6391387e060ef41b37e8a139c2419eae73","node_id":"3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b","evt_corr_id":"ecdb24aa61bd8cdfe87af9d674884b3ee744ad4e591cb86392c095008d17437b","ssn_corr_id":"5c28696616abaa74ea6644b6b24fec2a12e39daa849c1aa567d1140cb6e5afd9","net_version":4,"net_src_ip":"10.12.3.32","net_src_port":57465,"net_dst_ip":"10.14.2.56","net_dst_port":5500,"net_protocol":6,"timestamp":"2009-08-03 05:22:57","sig_type":1,"sig_id":17335,"sig_revision":2,"sig_category":"0","sig_priority":1,"classification":0,"sig_message":"indicator-shellcode x86 os agnostic fnstenv geteip byte xor decoder"},
 {"id":"7a4b048b9c78f59f99e71515985faf25f5ec76e76c957f083551fcd37cad82eb","node_id":"3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b","evt_corr_id":"0c551f98429300959baa067fc62ac1c79a150b10c6a0cb960e0874ba1240e994","ssn_corr_id":"3c96dac7e4458433ac7c9a39a5def68810654b5880d8a23fb7c988d8b5cb14b6","net_version":4,"net_src_ip":"10.12.3.32","net_src_port":63994,"net_dst_ip":"10.14.2.56","net_dst_port":4343,"net_protocol":6,"timestamp":"2009-08-02 12:12:45","sig_type":1,"sig_id":17335,"sig_revision":2,"sig_category":"0","sig_priority":1,"classification":0,"sig_message":"indicator-shellcode x86 os agnostic fnstenv geteip byte xor decoder"},
 {"id":"7a4bbbc0090958c26728271360f6512ebeec1d6e62dfbacfc628f2e935683f28","node_id":"3c2260189e68bdf0deede9a61b6c475072b22e9af3fb589f985250e31bba137b","evt_corr_id":"760bbf0f206870f0923531201cd71c2617ab9a1bd419d2c209d4fa55860ca726","ssn_corr_id":"14e46cec29c4cd7b7d80b5bd84a16cc62dd89a89841a84dc0ee1d76254a74332","net_version":4,"net_src_ip":"10.12.3.32","net_src_port":61827,"net_dst_ip":"10.14.2.56","net_dst_port":5500,"net_protocol":6,"timestamp":"2009-08-03 05:07:01","sig_type":1,"sig_id":17335,"sig_revision":2,"sig_category":"0","sig_priority":1,"classification":0,"sig_message":"indicator-shellcode x86 os agnostic fnstenv geteip byte xor decoder"},
@@ -69,15 +69,38 @@ function EventsCtrl( $scope, $filter ) {
     return ( priority > 3 ) ? 'badge-priority-default' : 'badge-priority-' + priority;
   };
 
+  $scope.toggleEventDetails = function(e) {
+    if( '_showDetails' in e )
+      e._showDetails ^= true;
+    else
+      e._showDetails = true;
 
+    console.log('showing details');
+  };
+
+  $scope.showEventDetails = function(e) {
+    return ( '_showDetails' in e ) &&
+           ( e._showDetails );
+  };
+
+  //
   // PAGINATION
   $scope.sortField = 'sig_priority';
   $scope.sortReverse = false;
   $scope.filteredItems = [];
   $scope.groupedItems = [];
-  $scope.itemsPerPage = 25;
   $scope.pagedItems = [];
   $scope.currentPage = 0;
+
+  $scope.pageSizes = [
+    { name: '5', value: 5 },
+    { name: '10', value: 10 },
+    { name: '25', value: 25 },
+    { name: '50', value: 50 },
+    { name: 'All', value: $scope.items.length }
+  ];
+
+  $scope.pageSize = $scope.pageSizes[0];
 
   var searchMatch = function (haystack, needle) {
     if( !needle ) {
@@ -112,11 +135,11 @@ function EventsCtrl( $scope, $filter ) {
     $scope.pagedItems = [];
          
     for( var i = 0; i < $scope.filteredItems.length; i++ ) {
-      if( i % $scope.itemsPerPage === 0 ) {
-        $scope.pagedItems[Math.floor(i / $scope.itemsPerPage)] = [ $scope.filteredItems[i] ];
+      if( i % $scope.pageSize.value === 0 ) {
+        $scope.pagedItems[Math.floor(i / $scope.pageSize.value)] = [ $scope.filteredItems[i] ];
       }
       else {
-        $scope.pagedItems[Math.floor(i / $scope.itemsPerPage)].push($scope.filteredItems[i]);
+        $scope.pagedItems[Math.floor(i / $scope.pageSize.value)].push($scope.filteredItems[i]);
       }
     }
   };
@@ -171,7 +194,7 @@ function EventsCtrl( $scope, $filter ) {
   };
 
   $scope.getPageList = function(max) {
-    var _m = max || 10;
+    var _m = max || 5;
     var _list = [];
 
     if( _m >= $scope.pagedItems.length ) {
@@ -196,29 +219,26 @@ function EventsCtrl( $scope, $filter ) {
     return _list;
   }
 
-  // functions have been describe process the data for display
-  $scope.search();
-
   // change sorting order
   $scope.sortBy = function(newSortField) {
     if( $scope.sortField === newSortField )
       $scope.sortReverse ^= true;
 
     $scope.sortField = newSortField;
-
-    // icon setup
-    $('th i').each(function() {
-      // icon reset
-      $(this).removeClass().addClass('icon-sort');
-    });
-
-    if ($scope.reverse)
-      $('th.'+newSortField+' i').removeClass().addClass('icon-chevron-up');
-    else
-      $('th.'+newSortField+' i').removeClass().addClass('icon-chevron-down');
   };
 
-  console.log('EventsCtrl in scope.');
+  $scope.getSortClass = function(f) {
+    if( $scope.sortField !== f )
+      return '';
+
+    return $scope.sortReverse ? 'sort-down' : 'sort-up';
+  }
+
+  //
+  // INIT
+
+  $scope.search();
+  echidnaService.setPage('events');
 };
 
 

@@ -289,8 +289,8 @@ sub search {
     my $sql    = $query->render;
     my $params = $query->params;
 
-    say "SQL:    $sql";
-    say "Params: " .Dumper $params;
+    #say "SQL:    $sql";
+    #say "Params: " .Dumper $params;
     $self->_execute_query($sql, $params, $model, $cb, $fields);
 }
 

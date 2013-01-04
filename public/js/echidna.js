@@ -1,4 +1,4 @@
-var app = angular.module('echidna', [])
+angular.module('echidna', ['ngResource'])
   .config(function($routeProvider) {
     $routeProvider.
       when('/dashboard', { templateUrl: '/dashboard.html', controller: DashboardCtrl}).
@@ -17,6 +17,11 @@ var app = angular.module('echidna', [])
       }
     }
   })
+  .factory('Session', function($resource){
+      return $resource('/api/sessions/', {}, {
+        query: {method: 'GET', params: {}, isArray: true}
+      });
+  })
   .service('echidnaService', function($rootScope, $http) {
     var _data = {
       events: [],
@@ -34,7 +39,7 @@ var app = angular.module('echidna', [])
         $rootScope.$broadcast('pageChanged', _activePage);
       },
       getPage: function() {
-      }
+      },
     };
   })
   .controller('NavigationCtrl', function($scope, echidnaService) {

@@ -1,10 +1,11 @@
-angular.module('echidna', ['ngResource'])
+// Application Singleton
+window.app = angular.module('echidna', ['ngResource'])
   .config(function($routeProvider) {
     $routeProvider.
-      when('/dashboard', { templateUrl: '/dashboard.html', controller: DashboardCtrl}).
-      when('/events', { templateUrl: '/events.html', controller: EventsCtrl}).
-      when('/sessions', { templateUrl: '/sessions.html', controller: SessionsCtrl}).
-      when('/pdns', { templateUrl: '/pdns.html', controller: PassiveDNSCtrl}).
+      when('/dashboard', { templateUrl: 'tmpl/dashboard.html', controller: DashboardCtrl}).
+      when('/events', { templateUrl: 'tmpl/events.html', controller: EventController }).
+      when('/sessions', { templateUrl: 'tmpl/sessions.html', controller: SessionController }).
+      when('/pdns', { templateUrl: 'tmpl/pdns.html', controller: PassiveDNSCtrl}).
       otherwise({redirectTo: '/dashboard'});
   })
   /* angularfy some bootstrap directives */
@@ -16,31 +17,6 @@ angular.module('echidna', ['ngResource'])
         $(element).tooltip( { placement: _p } );
       }
     }
-  })
-  .factory('Session', function($resource){
-      return $resource('/api/sessions/', {}, {
-        query: {method: 'GET', params: {}, isArray: true}
-      });
-  })
-  .service('echidnaService', function($rootScope, $http) {
-    var _data = {
-      events: [],
-      sessions: [],
-      passivedns: [],
-      objects: []
-    };
-
-    var _activePage = 'dashboard';
-
-    return {
-      setPage: function(page) {
-        _activePage = page;
-
-        $rootScope.$broadcast('pageChanged', _activePage);
-      },
-      getPage: function() {
-      },
-    };
   })
   .controller('NavigationCtrl', function($scope, echidnaService) {
     $scope._page = 'dashboard';

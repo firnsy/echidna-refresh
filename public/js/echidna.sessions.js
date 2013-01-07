@@ -1,30 +1,29 @@
-function SessionsCtrl( $scope, $filter, $http, echidnaService, Session) {
+function SessionController( $scope, $filter, echidnaService) {
+$scope.$safeApply = function($scope, fn) {
+  $scope = $scope || $rootScope;
+  fn = fn || function() {};
+  if($scope.$$phase) {
+    fn();
+  }
+  else {
+    $scope.apply(fn);
+  }
+  };
+  $scope.sortReverse = false;
+  $scope.filteredItems = [];
+  $scope.groupedItems = [];
+  $scope.pagedItems = [];
+  $scope.currentPage = 0;
 
-  //
-  // INIT
+  $scope.pageSizes = [
+    { name: '5', value: 5 },
+    { name: '10', value: 10 },
+    { name: '25', value: 25 },
+    { name: '50', value: 50 },
+    //{ name: 'All', value: $scope.items.length }
+  ];
 
-  $scope.items = [];
-  $http.get('/api/sessions').success(function(data) {
-    $scope.items = data;
-    $scope.search();
-  });
-
-  console.log("Scope Items: ");
-  console.log($scope.items);
-  //$scope.items = [];
-  // $scope.items = [
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b9", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-12-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b8", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-12-02 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b7", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-12-01 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b6", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-11-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b5", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-11-02 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b4", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-11-01 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b3", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-10-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b2", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-10-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b1", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-09-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0b0", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-08-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-    // {"id": "4c8fd7f359127b4b9e5de64a5e42c15659317e799689d1f1f89c9bdd10b0d0a9", "node_id": "4e01c629dded78450d09f6e6da5660678d6918ca6c4a6e5316d6367f2d2a5023", "ssn_corr_id": "f8adb368ae49bcaaea366e67fdae14e925282b59d1d426f6556f04164ff10b02", "time_start": "2012-12-03 05:14:37", "time_end": "2012-12-03 05:14:37", "net_version": 2, "net_src_ip": "173.255.243.154", "net_src_port": 40470, "net_src_total_packets": 2, "net_src_total_bytes": 145, "net_dst_ip": "173.203.99.19", "net_dst_port": 6667, "net_dst_total_packets": 2, "net_dst_total_bytes": 24, "net_protocol": 6, "timestamp": "2012-12-03 05:14:37", "time_duration": 0, "net_src_flags": 161, "net_dst_flags": 24, "file_name_start": "pcap.1354511673", "file_offset_start": 7460, "file_name_end": "pcap.1354511673", "file_offset_end": 8580, "meta": "", "meta_cxt_id": 1354511677000000004},
-  // ];
+  $scope.pageSize = $scope.pageSizes[0];
 
   var searchMatch = function (haystack, needle) {
     if( !needle ) {
@@ -32,11 +31,10 @@ function SessionsCtrl( $scope, $filter, $http, echidnaService, Session) {
     }
 
     return haystack.toString().toLowerCase().indexOf(needle.toLowerCase()) !== -1;
-  };
+  };
 
-    // init the filtered items
+  // init the filtered items
   $scope.search = function () {
-    console.log("Items is " +$scope.items.length);
     $scope.filteredItems = $filter('filter')($scope.items, function (item) {
       for(var attr in item) {
         if (searchMatch(item[attr], $scope.query))
@@ -159,11 +157,56 @@ function SessionsCtrl( $scope, $filter, $http, echidnaService, Session) {
     return $scope.sortReverse ? 'sort-down' : 'sort-up';
   }
 
+  console.log("SessionController["+$scope.parent+"]");
+
+  $scope.items = [];
+  $scope.items = echidnaService.findAllSessions();
+
+  $scope.$safeApply($scope, function() {
+    console.log("woot");
+    //this function is run once the apply process is running or has just finished
+  });
+
+  $scope.sessionCount = function() {
+    return $scope.items.length;
+  };
+
+  $scope.formatSessionSrc = function(e) {
+    return e.net_src_ip + ':' + e.net_src_port;
+  };
+
+  $scope.formatSessionDst = function(e) {
+    return e.net_dst_ip + ':' + e.net_dst_port;
+  };
+
+  $scope.formatProtocol = function(s) {
+    return s.net_protocol;
+  }
+
+  $scope.priorityClass = function(priority) {
+    return ( priority > 3 ) ? 'badge-priority-default' : 'badge-priority-' + priority;
+  };
+
+  $scope.toggleSessionDetails = function(e) {
+    if( '_showDetails' in e )
+      e._showDetails ^= true;
+    else
+      e._showDetails = true;
+
+    console.log('showing details');
+  };
+
+  $scope.showSessionDetails = function(e) {
+    return ( '_showDetails' in e ) &&
+           ( e._showDetails );
+  };
+
+  //
+  // PAGINATION
+  $scope.sortField = 'time_start';
   //
   // INIT
 
   //$scope.search();
-  echidnaService.setPage('sessions');
+  echidnaService.setPage('session');
 };
-
-

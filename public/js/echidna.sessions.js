@@ -1,27 +1,49 @@
-function SessionController( $scope, $filter, echidnaService) {
-$scope.$safeApply = function($scope, fn) {
-  $scope = $scope || $rootScope;
-  fn = fn || function() {};
-  if($scope.$$phase) {
-    fn();
-  }
-  else {
-    $scope.apply(fn);
-  }
+var SessionCtrl = function($scope, $filter, $location, Session) {
+
+  console.log("SessionController");
+
+  $scope.sortField = 'time_start';
+  $scope.pageSizes = [
+    { name: '10', value: 10 },
+    { name: '25', value: 25 },
+    { name: '50', value: 50 },
+    { name: '100', value: 100 },
+  ];
+  $scope.protoMap = {
+    1: 'icmp',
+    6: 'tcp',
+    17: 'udp',
   };
+
+  $scope.items = Session.query({search: 'all'}, 
+    // success callback
+    function(data) {
+      $("#progress-bar").css('display', 'none');
+
+      _.forEach($scope.items, function(item) {
+        if (_.has($scope.protoMap, item.net_protocol)) {
+          item.proto_name = $scope.protoMap[item.net_protocol];
+        }
+        else {
+          item.proto_name = "";
+        }
+      });
+      $scope.search();
+
+      $scope.pageSizes.push({ 
+        name: 'All', value: data.length 
+      });
+    }, 
+    // error callback
+    function() {
+      console.log("ERROR: Couldn't load data");
+    });
+
   $scope.sortReverse = false;
   $scope.filteredItems = [];
   $scope.groupedItems = [];
   $scope.pagedItems = [];
   $scope.currentPage = 0;
-
-  $scope.pageSizes = [
-    { name: '5', value: 5 },
-    { name: '10', value: 10 },
-    { name: '25', value: 25 },
-    { name: '50', value: 50 },
-    //{ name: 'All', value: $scope.items.length }
-  ];
 
   $scope.pageSize = $scope.pageSizes[0];
 
@@ -157,16 +179,6 @@ $scope.$safeApply = function($scope, fn) {
     return $scope.sortReverse ? 'sort-down' : 'sort-up';
   }
 
-  console.log("SessionController["+$scope.parent+"]");
-
-  $scope.items = [];
-  $scope.items = echidnaService.findAllSessions();
-
-  $scope.$safeApply($scope, function() {
-    console.log("woot");
-    //this function is run once the apply process is running or has just finished
-  });
-
   $scope.sessionCount = function() {
     return $scope.items.length;
   };
@@ -180,18 +192,23 @@ $scope.$safeApply = function($scope, fn) {
   };
 
   $scope.formatProtocol = function(s) {
-    return s.net_protocol;
-  }
+    if (_.isEmpty(s.proto_name)) {
+      return s.net_protocol;
+    }
+    return s.proto_name;
+  };
 
   $scope.priorityClass = function(priority) {
     return ( priority > 3 ) ? 'badge-priority-default' : 'badge-priority-' + priority;
   };
 
   $scope.toggleSessionDetails = function(e) {
-    if( '_showDetails' in e )
+    if( '_showDetails' in e ) {
       e._showDetails ^= true;
-    else
+    }
+    else {
       e._showDetails = true;
+    }
 
     console.log('showing details');
   };
@@ -203,10 +220,10 @@ $scope.$safeApply = function($scope, fn) {
 
   //
   // PAGINATION
-  $scope.sortField = 'time_start';
   //
   // INIT
 
-  //$scope.search();
-  echidnaService.setPage('session');
+  $scope.search();
 };
+
+SessionCtrl.$inject = ['$scope', '$filter', '$location', 'Session'];

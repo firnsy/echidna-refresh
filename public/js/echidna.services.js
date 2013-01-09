@@ -1,25 +1,32 @@
-window.app.service('echidnaService', function($rootScope, $resource) {
-  var _data = {
-    events: [],
-    sessions: [],
-    passivedns: [],
-    objects: []
-};
+App.factory('Session', ['$resource', function($resource) {
+  return $resource('/api/sessions/:id',{
+    id : '@id', 
+  },{
+    query:   { method : 'GET', isArray : true }, 
+    save:    { method : 'PUT' },
+    create:  { method: 'POST'},
+    destroy: { method: 'DELETE'}
+  })
+}]);
 
-  var Event   = $resource('/api/events/:id',   {id: '@id'});
-  var Session = $resource('/api/sessions/:id', {id: '@id'});
+App.factory('Event', ['$resource', function($resource) {
+  return $resource('/api/events/:id',{
+    id : '@id', 
+  },{
+    query:   { method : 'GET', isArray : true }, 
+    save:    { method : 'PUT' },
+    create:  { method: 'POST'},
+    destroy: { method: 'DELETE'}
+  })
+}]);
 
-  var _activePage = 'dashboard';
-
-  return {
-    findAllEvents:   function() { return Event.query();   },
-    findAllSessions: function() { return Session.query(); },
-    setPage: function(page) {
-        _activePage = page;
-
-        $rootScope.$broadcast('pageChanged', _activePage);
-    },
-      getPage: function() {
-    },
-  };
-})
+App.factory('PassiveDNS', ['$resource', function($resource) {
+  return $resource('/api/pdns/:id',{
+    id : '@id', 
+  },{
+    query:   { method : 'GET', isArray : true }, 
+    save:    { method : 'PUT' },
+    create:  { method: 'POST'},
+    destroy: { method: 'DELETE'}
+  })
+}]);

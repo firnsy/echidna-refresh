@@ -5,7 +5,6 @@ use Mojo::Base 'Mojolicious::Controller';
 use Mojo::JSON;
 
 use Echidna::Model::Pdns;
-
 sub collection_get {
   my $self = shift;
   my $db   = $self->db();
@@ -13,59 +12,45 @@ sub collection_get {
   Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
   my $criteria = {};
-  for my $attr ( @{ Echidna::Model::Pdns->attributes() } )
-  {
-    if( defined($self->param($attr)) )
-    {
+  for my $attr ( @{ Echidna::Model::Pdns->attributes() } ){
+    if (defined $self->param($attr)) {
       $criteria->{$attr} = $self->param($attr);
     }
   }
 
-  say Dumper $criteria;
+  for my $attr ('limit', 'offset') {
+    if (defined $self->param($attr)) {
+      $criteria->{$attr} = $self->param($attr);
+    }
+  }
 
-  if( keys( %$criteria ) > 0 )
-  {
-    eval {
-      Echidna::Model::Pdns->validate($criteria);
-    };
-    if( $@ )
+  if (defined $self->param('fields')) {
+    my @fields = split ',', $self->param('fields');
+    $criteria->{fields} = \@fields;
+  }
+
+  $db->search(pdns => $criteria, sub {
+    my ($pdns, $error) = @_;
+
+    if (defined($error)) {
+      $self->render(
+        status => 502,
+        json => []
+      );
+    }
+    else
     {
-      say "Something Failed..";
-      $self->render_json({ error => $@ });
-      return;
+      $self->render(
+        status => 200,
+        json   => $pdns
+      );
     }
 
-    my $s_time = time;
-    $db->search(pdns => $criteria, sub {
-      my $pdns = shift;
-
-      my $e_time = time;
-      my $diff = $e_time - $s_time;
-      say "Took: " .$diff;
-
-      #$self->respond_to(
-      #    json => { json => { "total" => $diff } },
-      #    any  => { json => $sessions },
-      #);
-      $self->render_json({took=>$diff});
-    });
-  }
-  else
-  {
-    $db->count(pdns => sub {
-      my $count = shift;
-
-      $self->respond_to(
-        json => { json => { total => $count } },
-        xml  => { text => "<total>" . $count->[0] . "</total>" }
-      );
-    });
-  }
+  });
 
   # we'll render via callbacks
   $self->render_later();
 }
-
 
 sub collection_add {
   my $self = shift;

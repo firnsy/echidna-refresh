@@ -1378,6 +1378,10 @@ div.dataTables_wrapper .ui-widget-header {
   cursor: default !important;
 }
 
+.collapse-content {
+  border-bottom: 0;
+}
+
 .pagination-clean ul > li > a {
   color: #000;
   font-size: 12px;

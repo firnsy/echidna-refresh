@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="echidna">
+<html lang="en" data-ng-app="Echidna">
   <head>
     <title>echidna</title>
     <meta charset="UTF-8" />
@@ -55,16 +55,15 @@
       </ul>
     </div>
 
-    <div id="content">
-      <div ng-view></div>
-    </div>
-
     <script src="js/excanvas.min.js"></script>
     <script src="js/jquery-1.8.3.min.js"></script>
     <script src="js/jquery.ui.custom.js"></script>
     <script src="js/jquery.peity.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
+    <script src="js/bootstrap-collapse.js"></script>
+    <script src="js/bootstrap-tooltip.js"></script>
     <script src="js/highcharts.min.js"></script>
+    <script src="js/underscore-min.js"></script>
 
     <script src="js/angular.js"></script>
     <script src="js/angular-resource.js"></script>
@@ -75,5 +74,9 @@
     <script src="js/echidna.sessions.js"></script>
     <script src="js/echidna.passivedns.js"></script>
 
+
+    <div id="content">
+      <div ng-view></div>
+    </div>
   </body>
 </html>

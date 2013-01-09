@@ -1,15 +1,32 @@
 // Application Singleton
-window.app = angular.module('echidna', ['ngResource'])
-  .config(function($routeProvider) {
-    $routeProvider.
-      when('/dashboard', { templateUrl: 'tmpl/dashboard.html', controller: DashboardCtrl}).
-      when('/events', { templateUrl: 'tmpl/events.html', controller: EventController }).
-      when('/sessions', { templateUrl: 'tmpl/sessions.html', controller: SessionController }).
-      when('/pdns', { templateUrl: 'tmpl/pdns.html', controller: PassiveDNSCtrl}).
-      otherwise({redirectTo: '/dashboard'});
+var Echidna = {};
+var App = angular.module('Echidna', ['ngResource']);
+
+App.config(['$routeProvider', function($route) {
+  $route.when('/', {
+    templateUrl: 'tmpl/dashboard.html',
+    controller: DashboardCtrl
   })
-  /* angularfy some bootstrap directives */
-  .directive('tooltip', function() {
+  .when('/events', {
+    templateUrl: 'tmpl/events.html',
+    controller: EventCtrl
+  })
+  .when('/sessions', {
+    templateUrl: 'tmpl/sessions.html',
+    controller: SessionCtrl
+  })
+  .when('/pdns', {
+    templateUrl: 'tmpl/pdns.html',
+    controller: PassiveDNSCtrl
+  })
+  .otherwise({
+    redirectTo: '/dashboard'
+  });
+
+}]);
+
+/* angularfy some bootstrap directives */
+App.directive('tooltip', function() {
     return {
       restrict:'A',
       link: function(scope, element, attrs) {
@@ -18,7 +35,7 @@ window.app = angular.module('echidna', ['ngResource'])
       }
     }
   })
-  .controller('NavigationCtrl', function($scope, echidnaService) {
+  .controller('NavigationCtrl', function($scope) {
     $scope._page = 'dashboard';
 
     $scope.$on('pageChanged', function(event, page) {
@@ -112,5 +129,9 @@ $(document).ready(function() {
   if( $(window).width() > 479 ) {
     $('#content-header .btn-group').css({width:'auto'});
     ul.css({'display':'block'});
+  }
+
+  if ($("[rel=tooltip]").length) {
+    $("[rel=tooltip]").tooltip();
   }
 });

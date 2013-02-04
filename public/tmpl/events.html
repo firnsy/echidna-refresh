@@ -71,19 +71,19 @@
                 <thead>
                   <tr>
                     <th ng-click="sortBy('sig_priority')" ng-class="getSortClass('sig_priority')">Priority</th>
+                    <th ng-click="sortBy('timestamp')" ng-class="getSortClass('timestamp')">Timestamp</th>
                     <th ng-click="sortBy('net_src_ip')" ng-class="getSortClass('net_src_ip')">Source IP</th>
                     <th ng-click="sortBy('net_dst_ip')" ng-class="getSortClass('net_dst_ip')">Desination IP</th>
                     <th ng-click="sortBy('sig_message')" ng-class="getSortClass('sig_message')">Signature</th>
-                    <th ng-click="sortBy('timestamp')" ng-class="getSortClass('timestamp')">Timestamp</th>
                   </tr>
                 </thead>
                 <tbody ng-repeat="e in pagedItems[currentPage] | orderBy:sortField:sortReverse">
                   <tr ng-click="toggleEventDetails(e)">
                     <td><span class="badge badge-priority" ng-class="priorityClass(e.sig_priority)">{{e.sig_priority}}</span></td>
+                    <td>{{formatEventTimestamp(e)}}</td>
                     <td>{{formatEventSourceIP(e)}}</td>
                     <td>{{formatEventDestinationIP(e)}}</td>
                     <td>{{e.sig_message}}</td>
-                    <td>{{formatEventTimestamp(e)}}</td>
                   </tr>
                   <tr ng-show="showEventDetails(e)">
                     <!--

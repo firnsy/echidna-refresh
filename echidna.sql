@@ -90,6 +90,7 @@ CREATE TABLE pdns (
   query_type            TEXT,
   answer                TEXT,
   ttl                   INT(10) UNSIGNED      NOT NULL,
+  count                 INT(10) UNSIGNED      NOT NULL,
   PRIMARY KEY (id),
   KEY node_ix (node_id)
 );

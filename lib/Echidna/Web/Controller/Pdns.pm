@@ -1,10 +1,11 @@
 package Echidna::Web::Controller::Pdns;
+use Mojo::Base 'Mojolicious::Controller';
 
 use Data::Dumper;
-use Mojo::Base 'Mojolicious::Controller';
 use Mojo::JSON;
 
 use Echidna::Model::Pdns;
+
 sub collection_get {
   my $self = shift;
   my $db   = $self->db();

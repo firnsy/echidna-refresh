@@ -38,6 +38,7 @@ use Mojo::JSON;
 use Mojo::IOLoop;
 use Mojo::UserAgent;
 use Scalar::Util qw(weaken);
+use POSIX;
 
 #
 # LOCAL INCLUDES
@@ -96,17 +97,19 @@ sub _get_dns_records {
 
         my @elements = split(/\|\|/, $line);
 
-        if( @elements != 8 )
+        if( @elements != 9 )
         {
           say 'E: Unknown passivedns format detected.';
           next;
         }
 
+        my ($ts, $tsu) = split(/\./,$elements[0]);
+
         # build the dns structs
         push @{ $spooler->{records} }, {
           id                    => sha256_hex(@elements[0..2,4,6]),
           node_id               => $node_id,
-          timestamp             => $elements[0],
+          timestamp             => POSIX::strftime("%Y-%m-%d %H:%M:%S\n", localtime($ts)),
           client                => $elements[1],
           server                => $elements[2],
           rr_class              => $elements[3],
@@ -114,6 +117,7 @@ sub _get_dns_records {
           query_type            => $elements[5],
           answer                => $elements[6],
           ttl                   => $elements[7],
+          count                 => $elements[8],
         };
 
         $spooler->{file_offset} = tell FILE;

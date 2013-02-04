@@ -31,8 +31,8 @@ sub new {
 
   return bless {
     __table    => undef,
-    __offset   => undef,
-    __limit    => undef,
+    __offset   => 0,
+    __limit    => 100,
     __order_by => undef,
     __group_by => undef,
     __fields   => [],

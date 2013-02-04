@@ -28,7 +28,7 @@
               <th>TTL</th>
             </thead>
             <tbody ng-repeat="dns in pagedItems[currentPage] | orderBy:sortField:sortReverse">
-              <tr ng-click="toggleDNSDetails(session)">
+              <tr ng-click="toggleDNSDetails(dns)">
                 <td>{{dns.first_seen}}</td>
                 <td>{{dns.last_seen}}</td>
                 <td><a ng-click="showSrcIps(dns)" href="">{{dns.query_name}}</a></td>

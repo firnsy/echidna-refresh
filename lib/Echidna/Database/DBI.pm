@@ -286,11 +286,15 @@ sub search {
           ->table($table)
           ->where($criteria);
 
+    if ($model->can('order_attr') and defined $model->order_attr) {
+      $query->order_by($model->order_attr);
+    }
+
     my $sql    = $query->render;
     my $params = $query->params;
 
-    #say "SQL:    $sql";
-    #say "Params: " .Dumper $params;
+    say "SQL:    $sql";
+    say "Params: " .Dumper $params;
     $self->_execute_query($sql, $params, $model, $cb, $fields);
 }
 

@@ -41,6 +41,12 @@ __PACKAGE__->set_properties({
     meta_by2_event_id => 'any',
 });
 
+sub order_attr {
+  return 'timestamp';
+}
+
+sub range_attrs { ['timestamp', 'timestamp'] }
+
 #
 # my $event   = Echidna::Model::Event->new($args);
 # my $session = $event->session();

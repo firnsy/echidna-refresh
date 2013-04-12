@@ -22,5 +22,8 @@ __PACKAGE__->set_properties({
     ttl                   => ['int'],
 });
 
+sub order_attr  { 'timestamp' }
+sub range_attrs { ['timestamp', 'timestamp'] }
+
 1;
 

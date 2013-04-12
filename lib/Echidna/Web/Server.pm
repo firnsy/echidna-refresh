@@ -241,6 +241,48 @@ sub startup_post {
     );
   });
 
+  $self->helper(filter_criteria => sub {
+    my ($self, $model) = @_;
+    my $criteria = {};
+
+    for my $attr ( @{ $model->attributes() } ){
+      if (defined $self->param($attr)) {
+        $criteria->{$attr} = $self->param($attr);
+      }
+    }
+
+
+    for my $attr ('limit', 'offset') {
+      if (defined $self->param($attr)) {
+        $criteria->{$attr} = $self->param($attr);
+      }
+    }
+
+    if (defined $self->param('fields')) {
+      my @fields = split ',', $self->param('fields');
+      $criteria->{fields} = \@fields;
+    }
+
+    my ($from_attr, $to_attr) = @{ $model->range_attrs() };
+
+    $to_attr = $from_attr unless defined $to_attr;
+
+    # from=[START DATE]&to=[END DATE]
+    if (defined $self->param('from')) {
+      $criteria->{$from_attr} = {
+        '$gte' => $self->param('from')
+      };
+
+      if (defined $self->param('to')) {
+        $criteria->{$to_attr} = {
+          '$lte' => $self->param('to')
+        };
+      }
+    }
+
+    return $criteria;
+  });
+
   $self->plugin('authentication' => {
     autoload_user => 1,
     session_key   => 'echidna',
@@ -252,8 +294,19 @@ sub startup_post {
     validate_user => sub {
       my( $app, $username, $password, $extra_data) = @_;
       say 'D: validate ' . $username . ':' . $password;
-      if( $username eq "admin" and $password eq "admin" ) {
-        return 1;
+
+      my $query = "SELECT * FROM user WHERE username = ? AND password = ?";
+      say "SQL: ", $query;
+      my $user_found = $self->db->execute($query, [$username, $password])->recv;
+
+      say "User Found?: ";
+      say Dumper $user_found;
+
+
+      if (defined $user_found and ref $user_found eq 'ARRAY') {
+        return 1 if scalar @$user_found > 0;
+      } else {
+        say 'Error - Bogus response from authentication in the database';
       }
 
       return 0;
@@ -267,7 +320,7 @@ sub startup_post {
 
   my $router = $self->routes;
 
-  $router->namespace('Echidna::Web::Controller');
+  $router->namespaces(['Echidna::Web::Controller']);
 
   $router->get('/login')->to('main#login');
   $router->post('/login')->to('main#login_auth');
@@ -311,6 +364,9 @@ sub startup_post {
 
   $api_router = $auth_router->route('/api')->over(authenticated => 1);
   my $route;
+
+  $route = $api_router->under('/users');
+  $route->get('/')->to('main#users_get');
 
   #
   # build node routes /api/nodes

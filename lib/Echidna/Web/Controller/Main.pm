@@ -1,6 +1,7 @@
 package Echidna::Web::Controller::Main;
 use Mojo::Base 'Mojolicious::Controller';
 use Data::Dumper;
+use Echidna::Model::User;
 
 sub login {
   my $self = shift;
@@ -51,6 +52,22 @@ sub index {
   $self->stash( error => 'You SUCK!!!' );
 
   $self->redirect_to('/login');
+}
+
+sub users_get {
+  my $self = shift;
+
+  $self->db->search(user => {}, sub {
+      my ($users, $err) = @_;
+
+      if (defined $err) { say $err }
+
+      $self->render(
+        status => 200,
+        json   => $users
+      );
+    });
+
 }
 
 1;

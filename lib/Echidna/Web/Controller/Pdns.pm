@@ -12,23 +12,7 @@ sub collection_get {
 
   Mojo::IOLoop->stream($self->tx->connection)->timeout(300);
 
-  my $criteria = {};
-  for my $attr ( @{ Echidna::Model::Pdns->attributes() } ){
-    if (defined $self->param($attr)) {
-      $criteria->{$attr} = $self->param($attr);
-    }
-  }
-
-  for my $attr ('limit', 'offset') {
-    if (defined $self->param($attr)) {
-      $criteria->{$attr} = $self->param($attr);
-    }
-  }
-
-  if (defined $self->param('fields')) {
-    my @fields = split ',', $self->param('fields');
-    $criteria->{fields} = \@fields;
-  }
+  my $criteria = $self->filter_criteria('Echidna::Model::Pdns');
 
   $db->search(pdns => $criteria, sub {
     my ($pdns, $error) = @_;

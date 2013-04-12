@@ -43,4 +43,10 @@ __PACKAGE__->set_properties({
     meta_cxt_id           => 'any',
 });
 
+sub order_attr {
+  return 'time_start';
+}
+
+sub range_attrs { ['time_start', 'time_end'] }
+
 1;
